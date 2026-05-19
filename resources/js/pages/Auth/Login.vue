@@ -57,7 +57,6 @@ function submit(): void {
                     >
                         <p class="text-xs text-blue-100">هەژماری مانیجەر</p>
                         <p class="mt-2 font-semibold">manager@example.com</p>
-                        <p class="mt-1 text-sm text-blue-100">password123</p>
                     </div>
 
                     <div
@@ -65,7 +64,6 @@ function submit(): void {
                     >
                         <p class="text-xs text-blue-100">هەژماری بەکارهێنەر</p>
                         <p class="mt-2 font-semibold">shad@example.com</p>
-                        <p class="mt-1 text-sm text-blue-100">password123</p>
                     </div>
                 </div>
             </div>
