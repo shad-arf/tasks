@@ -17,6 +17,7 @@ class UserManagementController extends Controller
 
         User::create([
             'name' => $data['name'],
+            'username' => $data['username'],
             'email' => $data['email'],
             'role' => $data['role'],
             'password' => Hash::make($data['password']),
@@ -37,6 +38,7 @@ class UserManagementController extends Controller
 
         $payload = [
             'name' => $data['name'],
+            'username' => $data['username'],
             'email' => $data['email'],
             'role' => $data['role'],
         ];

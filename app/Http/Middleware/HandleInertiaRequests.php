@@ -46,6 +46,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user() === null ? null : [
                     'id' => $request->user()->id,
                     'name' => $request->user()->name,
+                    'username' => $request->user()->username,
                     'email' => $request->user()->email,
                     'role' => $request->user()->role,
                     'email_verified_at' => $request->user()->email_verified_at?->toDateTimeString(),

@@ -12,7 +12,7 @@ class AdminDashboardController extends Controller
     public function index(): Response
     {
         $users = User::query()
-            ->select('id', 'name', 'email', 'role', 'created_at')
+            ->select('id', 'name', 'username', 'email', 'role', 'created_at')
             ->orderBy('name')
             ->get();
 
@@ -20,6 +20,7 @@ class AdminDashboardController extends Controller
             'users' => $users->map(fn (User $user): array => [
                 'id' => $user->id,
                 'name' => $user->name,
+                'username' => $user->username,
                 'email' => $user->email,
                 'role' => $user->role,
                 'created_at' => $user->created_at?->toDateTimeString(),

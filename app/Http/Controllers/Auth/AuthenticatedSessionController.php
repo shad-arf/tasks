@@ -22,12 +22,12 @@ class AuthenticatedSessionController extends Controller
         $credentials = $request->validated();
 
         if (! Auth::attempt([
-            'email' => $credentials['email'],
+            'username' => $credentials['username'],
             'password' => $credentials['password'],
         ], $request->boolean('remember'))) {
             return back()->withErrors([
-                'email' => 'ئیمەیڵ یان وشەی نهێنی هەڵەیە.',
-            ])->onlyInput('email');
+                'username' => 'ناوی بەکارهێنەر یان وشەی نهێنی هەڵەیە.',
+            ])->onlyInput('username');
         }
 
         $request->session()->regenerate();

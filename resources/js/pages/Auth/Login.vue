@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 
 const form = useForm({
-    email: '',
+    username: '',
     password: '',
     remember: false,
 });
+
+const showPassword = ref(false);
 
 function submit(): void {
     form.post('/login');
@@ -47,25 +50,9 @@ function submit(): void {
                     چوونەژوورەوە بۆ سیستەمی بەڕێوەبردنی تاسک
                 </h1>
                 <p class="mt-5 max-w-md text-sm leading-8 text-blue-50/90">
-                    مانیجەر دەتوانێت بەکارهێنەر بەڕێوەببات و تاسک دابەش بکات.
-                    بەکارهێنەر دەتوانێت تاسکەکانی خۆی ببینێت و دۆخیان بگۆڕێت.
+                    بە username و وشەی نهێنی بچۆرە ژوورەوە. مانیجەر بەکارهێنەر
+                    بەڕێوەدەبات و user ـەکان تاسک لە نێوان خۆیاندا دابەش دەکەن.
                 </p>
-
-                <div class="mt-10 space-y-4">
-                    <div
-                        class="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15"
-                    >
-                        <p class="text-xs text-blue-100">هەژماری مانیجەر</p>
-                        <p class="mt-2 font-semibold">manager@example.com</p>
-                    </div>
-
-                    <div
-                        class="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15"
-                    >
-                        <p class="text-xs text-blue-100">هەژماری بەکارهێنەر</p>
-                        <p class="mt-2 font-semibold">shad@example.com</p>
-                    </div>
-                </div>
             </div>
 
             <div class="p-8 lg:p-12">
@@ -74,29 +61,29 @@ function submit(): void {
                         چوونەژوورەوە
                     </h2>
                     <p class="mt-2 text-sm text-gray-500">
-                        زانیاری هەژمارەکەت بنووسە بۆ دەستپێکردن
+                        username و وشەی نهێنی بنووسە بۆ دەستپێکردن
                     </p>
 
                     <form class="mt-8 space-y-5" @submit.prevent="submit">
                         <div>
                             <label
-                                for="email"
+                                for="username"
                                 class="mb-2 block text-sm font-medium text-gray-700"
                             >
-                                ئیمەیڵ
+                                username
                             </label>
                             <input
-                                id="email"
-                                v-model="form.email"
-                                type="email"
+                                id="username"
+                                v-model="form.username"
+                                type="text"
                                 class="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm transition focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                placeholder="name@example.com"
+                                placeholder="username"
                             />
                             <p
-                                v-if="form.errors.email"
+                                v-if="form.errors.username"
                                 class="mt-2 text-xs text-red-600"
                             >
-                                {{ form.errors.email }}
+                                {{ form.errors.username }}
                             </p>
                         </div>
 
@@ -107,13 +94,22 @@ function submit(): void {
                             >
                                 وشەی نهێنی
                             </label>
-                            <input
-                                id="password"
-                                v-model="form.password"
-                                type="password"
-                                class="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm transition focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                placeholder="********"
-                            />
+                            <div class="relative">
+                                <input
+                                    id="password"
+                                    v-model="form.password"
+                                    :type="showPassword ? 'text' : 'password'"
+                                    class="w-full rounded-2xl border border-gray-200 px-4 py-3 pr-20 text-sm transition focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                    placeholder="********"
+                                />
+                                <button
+                                    type="button"
+                                    class="absolute top-1/2 left-3 -translate-y-1/2 text-xs font-medium text-blue-600 transition hover:text-blue-700"
+                                    @click="showPassword = !showPassword"
+                                >
+                                    {{ showPassword ? 'شاردنەوە' : 'پیشاندان' }}
+                                </button>
+                            </div>
                             <p
                                 v-if="form.errors.password"
                                 class="mt-2 text-xs text-red-600"

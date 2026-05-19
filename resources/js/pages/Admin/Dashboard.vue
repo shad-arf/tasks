@@ -7,6 +7,7 @@ import type { User } from '@/types';
 type AdminUser = {
     id: number;
     name: string;
+    username: string;
     email: string;
     role: 'manager' | 'user';
     created_at: string | null;
@@ -45,6 +46,7 @@ const flashError = computed(() => page.props.flash?.error ?? '');
 
 const createUserForm = useForm({
     name: '',
+    username: '',
     email: '',
     role: 'user' as 'manager' | 'user',
     password: '',
@@ -62,7 +64,7 @@ function submitUser(): void {
     createUserForm.post('/admin/users', {
         preserveScroll: true,
         onSuccess: () => {
-            createUserForm.reset('name', 'email', 'password');
+            createUserForm.reset('name', 'username', 'email', 'password');
             createUserForm.role = 'user';
         },
     });
@@ -73,6 +75,7 @@ function updateUser(user: AdminUser): void {
         `/admin/users/${user.id}`,
         {
             name: user.name,
+            username: user.username,
             email: user.email,
             role: user.role,
             password: '',
@@ -128,9 +131,9 @@ function logout(): void {
                         بەڕێوەبردنی بەکارهێنەران
                     </h1>
                     <p class="mt-2 text-sm leading-7 text-slate-300">
-                        ئەرکی مانیجەر لەم پەڕەیەدا تەنها بەڕێوەبردنی
-                        بەکارهێنەرانە. تاسکەکان لە نێوان user ـەکاندا دابەش
-                        دەکرێن.
+                        مانیجەر تەنها بەکارهێنەران بەڕێوەدەبات. user ـەکان بە
+                        username چوونەژوورەوە دەکەن و تاسک لە نێوان خۆیاندا
+                        دابەش دەکەن.
                     </p>
                 </div>
 
@@ -140,7 +143,7 @@ function logout(): void {
                             {{ currentUser?.name }}
                         </p>
                         <p class="text-xs text-slate-400">
-                            {{ currentUser?.email }}
+                            {{ currentUser?.username }}
                         </p>
                     </div>
                     <button
@@ -236,6 +239,19 @@ function logout(): void {
                             </p>
 
                             <input
+                                v-model="createUserForm.username"
+                                type="text"
+                                placeholder="username"
+                                class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm focus:border-transparent focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                            />
+                            <p
+                                v-if="createUserForm.errors.username"
+                                class="text-xs text-red-600"
+                            >
+                                {{ createUserForm.errors.username }}
+                            </p>
+
+                            <input
                                 v-model="createUserForm.email"
                                 type="email"
                                 placeholder="ئیمەیڵ"
@@ -302,10 +318,15 @@ function logout(): void {
                                 class="rounded-2xl border border-slate-100 bg-slate-50 p-4"
                             >
                                 <div
-                                    class="grid gap-3 md:grid-cols-[1fr_1fr_140px_auto_auto] md:items-center"
+                                    class="grid gap-3 md:grid-cols-[1fr_1fr_1fr_140px_auto_auto] md:items-center"
                                 >
                                     <input
                                         v-model="user.name"
+                                        type="text"
+                                        class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                    />
+                                    <input
+                                        v-model="user.username"
                                         type="text"
                                         class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-sky-500 focus:outline-none"
                                     />
