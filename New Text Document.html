@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ckb" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تاسکەکانم</title>
+    <!-- بەکارهێنانی Tailwind CSS بۆ دیزاینێکی خێرا و مۆدێرن -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- فۆنتێکی گونجاو بۆ زمانی کوردی -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Noto Kufi Arabic', sans-serif;
+            background-color: #f3f4f6; /* ڕەنگێکی باکگراوندی زۆر کاڵ بۆ ئارامی چاو */
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen py-10 px-4 sm:px-6 lg:px-8">
+
+    <div class="max-w-5xl mx-auto space-y-8">
+        
+        <!-- هێدەری پەیجەکە -->
+        <div class="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">بەڕێوەبردنی تاسکەکان</h1>
+                <p class="text-sm text-gray-500 mt-1">ئاگاداری کارەکانی یەکتر بن بە ئاسانی</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-medium text-gray-700">پڕۆفایل: شاد</span>
+                <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                    ش
+                </div>
+            </div>
+        </div>
+
+        <!-- فۆڕمی زیادکردنی تاسک -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">زیادکردنی تاسکی نوێ</h2>
+            <form action="#" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="md:col-span-2">
+                    <input type="text" placeholder="ناونیشانی تاسک..." class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm">
+                </div>
+                <div>
+                    <select class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm text-gray-600 bg-white">
+                        <option value="" disabled selected>بۆ کێیە؟</option>
+                        <option value="1">بۆ خۆم</option>
+                        <option value="2">بۆ بەڕێوەبەر</option>
+                    </select>
+                </div>
+                <div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm">
+                        زیادکردن
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- لیستی تاسکەکان (دابەشکراوە بۆ دوو بەش) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- تاسکەکانی من (ئەوانەی پێم سپێردراون) -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                    تاسکەکانی من
+                </h2>
+                <div class="space-y-3">
+                    
+                    <!-- تاسکێکی تەواونەکراو -->
+                    <div class="flex items-start gap-3 p-4 rounded-xl border border-gray-100 hover:border-blue-100 hover:bg-blue-50/30 transition-all">
+                        <input type="checkbox" class="mt-1 w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-800">چاککردنی کێشەی سێرڤەرەکە</h3>
+                            <p class="text-xs text-gray-500 mt-1">سپێردراوە لەلایەن: بەڕێوەبەر</p>
+                        </div>
+                    </div>
+
+                    <!-- تاسکێکی تەواوکراو -->
+                    <div class="flex items-start gap-3 p-4 rounded-xl border border-gray-100 bg-gray-50 opacity-75">
+                        <input type="checkbox" checked disabled class="mt-1 w-5 h-5 text-blue-600 rounded border-gray-300 cursor-not-allowed">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500 line-through">نوێکردنەوەی داتابەیس</h3>
+                            <p class="text-xs text-gray-400 mt-1">سپێردراوە لەلایەن: بەڕێوەبەر</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- ئەو تاسکانەی من داومە بە بەڕێوەبەر -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                    تاسکەکانی بەڕێوەبەر
+                </h2>
+                <div class="space-y-3">
+                    
+                    <div class="flex items-start gap-3 p-4 rounded-xl border border-gray-100 hover:border-green-100 hover:bg-green-50/30 transition-all">
+                        <!-- لێرەدا چێک بۆکسەکەمان داناوە بەڵام disabled چونکە تۆ ناتوانیت تاسکی ئەو تەواو بکەیت -->
+                        <input type="checkbox" disabled class="mt-1 w-5 h-5 rounded border-gray-300 cursor-not-allowed">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-800">پێداچوونەوە بە گرێبەستەکان</h3>
+                            <p class="text-xs text-gray-500 mt-1">دۆخ: چاوەڕوانی تەواوکردن</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3 p-4 rounded-xl border border-gray-100 hover:border-green-100 hover:bg-green-50/30 transition-all">
+                        <input type="checkbox" disabled class="mt-1 w-5 h-5 rounded border-gray-300 cursor-not-allowed">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-800">ناردنی ئیمەیڵ بۆ کڕیارەکان</h3>
+                            <p class="text-xs text-gray-500 mt-1">دۆخ: چاوەڕوانی تەواوکردن</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>
