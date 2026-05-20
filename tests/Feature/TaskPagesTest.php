@@ -3,12 +3,16 @@
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Inertia\Testing\AssertableInertia as Assert;
 
 uses(RefreshDatabase::class);
 
-it('renders the task dashboard on the home route', function () {
-    $manager = User::factory()->create([
+it('redirects guests from the home route to the login page', function () {
+    $this->get(route('home'))
+        ->assertRedirect(route('login'));
+});
+
+it('renders the task dashboard for regular users', function () {
+    $assigner = User::factory()->create([
         'name' => 'Manager',
         'email' => 'manager@example.com',
     ]);
@@ -16,39 +20,65 @@ it('renders the task dashboard on the home route', function () {
         'name' => 'Shad',
         'email' => 'shad@example.com',
     ]);
+    $otherUser = User::factory()->create([
+        'name' => 'Aso',
+        'email' => 'aso@example.com',
+    ]);
 
     Task::create([
         'title' => 'Review invoice batch',
         'description' => 'Confirm all totals before close.',
-        'assigned_by' => $manager->id,
+        'assigned_by' => $assigner->id,
         'assigned_to' => $assignee->id,
     ]);
 
-    $this->get(route('home', ['user' => $assignee->id]))
+    Task::create([
+        'title' => 'Plan sprint retro',
+        'description' => 'Bring the blockers list.',
+        'assigned_by' => $assignee->id,
+        'assigned_to' => $otherUser->id,
+    ]);
+
+    $this->actingAs($assignee)
+        ->get(route('tasks.index'))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('Tasks/Index')
-            ->where('currentUser.id', $assignee->id)
-            ->has('users', 2)
-            ->has('assignedToMe', 1)
-            ->has('assignedByMe', 0)
-        );
+        ->assertSee('تاسکەکانم')
+        ->assertSee('Review invoice batch')
+        ->assertSee('Plan sprint retro');
+});
+
+it('renders the admin dashboard for managers', function () {
+    $manager = User::factory()->manager()->create([
+        'name' => 'Manager',
+        'username' => 'manager-user',
+    ]);
+    $regularUser = User::factory()->create([
+        'name' => 'Shad',
+        'username' => 'shad-user',
+    ]);
+
+    $this->actingAs($manager)
+        ->get(route('admin.dashboard'))
+        ->assertOk()
+        ->assertSee('بەڕێوەبردنی بەکارهێنەران')
+        ->assertSee($regularUser->username);
 });
 
 it('creates a task from the dashboard flow', function () {
-    $manager = User::factory()->create();
+    $assigner = User::factory()->create();
     $assignee = User::factory()->create();
 
-    $this->post(route('tasks.store'), [
-        'acting_as' => $manager->id,
-        'title' => 'Prepare weekly report',
-        'description' => 'Include blockers and next steps.',
-        'assigned_to' => $assignee->id,
-    ])->assertRedirect(route('home', ['user' => $manager->id]));
+    $this->actingAs($assigner)
+        ->post(route('tasks.store'), [
+            'title' => 'Prepare weekly report',
+            'description' => 'Include blockers and next steps.',
+            'assigned_to' => $assignee->id,
+        ])
+        ->assertRedirect(route('tasks.index'));
 
     $this->assertDatabaseHas('tasks', [
         'title' => 'Prepare weekly report',
-        'assigned_by' => $manager->id,
+        'assigned_by' => $assigner->id,
         'assigned_to' => $assignee->id,
         'is_completed' => false,
     ]);
@@ -65,9 +95,9 @@ it('allows the assignee to toggle a task status', function () {
         'is_completed' => false,
     ]);
 
-    $this->patch(route('tasks.toggle', $task), [
-        'acting_as' => $assignee->id,
-    ])->assertRedirect(route('home', ['user' => $assignee->id]));
+    $this->actingAs($assignee)
+        ->patch(route('tasks.toggle', $task))
+        ->assertRedirect(route('tasks.index'));
 
     $this->assertDatabaseHas('tasks', [
         'id' => $task->id,
@@ -87,9 +117,9 @@ it('blocks task status changes from non assignees', function () {
         'is_completed' => false,
     ]);
 
-    $this->patch(route('tasks.toggle', $task), [
-        'acting_as' => $otherUser->id,
-    ])->assertForbidden();
+    $this->actingAs($otherUser)
+        ->patch(route('tasks.toggle', $task))
+        ->assertForbidden();
 
     $this->assertDatabaseHas('tasks', [
         'id' => $task->id,

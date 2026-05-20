@@ -4,15 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Task;
 use App\Models\User;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Inertia\Inertia;
-use Inertia\Response;
 
 class TaskController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request): View
     {
         $user = $request->user();
 
@@ -38,18 +37,11 @@ class TaskController extends Controller
             ->orderBy('name')
             ->get();
 
-        return Inertia::render('Tasks/Index', [
-            'users' => $users->map(fn (User $assignableUser): array => [
-                'id' => $assignableUser->id,
-                'name' => $assignableUser->name,
-                'email' => $assignableUser->email,
-            ])->values(),
-            'assignedToMe' => $assignedToMe->map(
-                fn (Task $task): array => $this->transformTask($task)
-            )->values(),
-            'assignedByMe' => $assignedByMe->map(
-                fn (Task $task): array => $this->transformTask($task)
-            )->values(),
+        return view('tasks.index', [
+            'currentUser' => $user,
+            'users' => $users,
+            'assignedToMe' => $assignedToMe,
+            'assignedByMe' => $assignedByMe,
         ]);
     }
 
@@ -95,29 +87,5 @@ class TaskController extends Controller
 
         return to_route('tasks.index')
             ->with('success', 'دۆخی تاسک نوێکرایەوە.');
-    }
-
-    private function transformTask(Task $task): array
-    {
-        return [
-            'id' => $task->id,
-            'title' => $task->title,
-            'description' => $task->description,
-            'is_completed' => $task->is_completed,
-            'assigned_by' => $task->assigned_by,
-            'assigned_to' => $task->assigned_to,
-            'assigner' => [
-                'id' => $task->assigner?->id,
-                'name' => $task->assigner?->name,
-                'email' => $task->assigner?->email,
-            ],
-            'assignee' => [
-                'id' => $task->assignee?->id,
-                'name' => $task->assignee?->name,
-                'email' => $task->assignee?->email,
-            ],
-            'created_at' => $task->created_at?->toDateTimeString(),
-            'updated_at' => $task->updated_at?->toDateTimeString(),
-        ];
     }
 }

@@ -7,6 +7,8 @@ use Illuminate\Validation\Rule;
 
 class StoreUserRequest extends FormRequest
 {
+    protected $errorBag = 'createUser';
+
     public function authorize(): bool
     {
         return true;
