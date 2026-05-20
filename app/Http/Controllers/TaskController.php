@@ -24,6 +24,8 @@ class TaskController extends Controller
 
         $currentView = $this->resolveTaskView($request);
         $completedFilter = $this->resolveCompletedFilter($request);
+        $currentTab = $this->resolveTaskTab($request);
+        $currentFocus = $this->resolveTaskFocus($request);
 
         $baseQuery = fn () => Task::query()
             ->with([
@@ -41,8 +43,8 @@ class TaskController extends Controller
         $assignedByMeQuery = $baseQuery()
             ->where('assigned_by', $user->id);
 
-        $this->applyTaskVisibilityFilter($assignedToMeQuery, $currentView, $completedFilter);
-        $this->applyTaskVisibilityFilter($assignedByMeQuery, $currentView, $completedFilter);
+        $this->applyTaskVisibilityFilter($assignedToMeQuery, $currentView, $completedFilter, $currentFocus);
+        $this->applyTaskVisibilityFilter($assignedByMeQuery, $currentView, $completedFilter, $currentFocus);
 
         $assignedToMe = $assignedToMeQuery->get();
         $assignedByMe = $assignedByMeQuery->get();
@@ -61,6 +63,8 @@ class TaskController extends Controller
             'assignedByMe' => $assignedByMe,
             'currentView' => $currentView,
             'completedFilter' => $completedFilter,
+            'currentTab' => $currentTab,
+            'currentFocus' => $currentFocus,
             'activeAssignedToMeCount' => Task::query()
                 ->where('assigned_to', $user->id)
                 ->whereNull('archived_at')
@@ -131,7 +135,56 @@ class TaskController extends Controller
             'assigned_to' => (int) $data['assigned_to'],
         ]);
 
-        return to_route('tasks.index')->with('success', 'تاسک بەسەرکەوتوویی زیادکرا.');
+        return to_route('tasks.index', $this->taskIndexParameters($request, ['view' => 'active']))->with('success', 'تاسک بەسەرکەوتوویی زیادکرا.');
+    }
+
+    public function show(Request $request, Task $task): View
+    {
+        $user = $request->user();
+
+        abort_if($user === null, 401);
+        abort_if($user->isManager(), 403, 'Managers do not use the task workspace.');
+        abort_if(
+            ! in_array($user->id, [$task->assigned_by, $task->assigned_to], true),
+            403,
+            'Only task participants can view this task.'
+        );
+
+        $task->load([
+            'assigner:id,name,email,username',
+            'assignee:id,name,email,username',
+            'comments.user:id,name,email,username',
+        ]);
+
+        return view('tasks.show', [
+            'task' => $task,
+            'currentView' => $this->resolveTaskView($request),
+            'completedFilter' => $this->resolveCompletedFilter($request),
+            'currentTab' => $this->resolveTaskTab($request),
+            'currentFocus' => $this->resolveTaskFocus($request),
+            'statusLabels' => [
+                'pending' => 'چاوەڕوان',
+                'in_progress' => 'لە کاردایە',
+                'pending_review' => 'چاوەڕوانی پشکنین',
+                'completed' => 'تەواوبووە',
+            ],
+            'statusClasses' => [
+                'pending' => 'text-bg-warning',
+                'in_progress' => 'text-bg-info',
+                'pending_review' => 'text-bg-primary',
+                'completed' => 'text-bg-success',
+            ],
+            'priorityLabels' => [
+                'urgent' => 'Urgent',
+                'high' => 'High',
+                'low' => 'Low',
+            ],
+            'priorityClasses' => [
+                'urgent' => 'text-bg-danger',
+                'high' => 'text-bg-warning',
+                'low' => 'text-bg-secondary',
+            ],
+        ]);
     }
 
     public function updateStatus(Task $task, UpdateTaskStatusRequest $request): RedirectResponse
@@ -226,7 +279,7 @@ class TaskController extends Controller
             ->with('success', 'تاسک ئەرشیڤ کرا.');
     }
 
-    private function applyTaskVisibilityFilter($query, string $currentView, string $completedFilter): void
+    private function applyTaskVisibilityFilter($query, string $currentView, string $completedFilter, string $currentFocus): void
     {
         if ($currentView === 'archived') {
             $query->whereNotNull('archived_at');
@@ -238,6 +291,14 @@ class TaskController extends Controller
 
         if ($completedFilter === 'hide') {
             $query->where('is_completed', false);
+        }
+
+        if ($currentFocus === 'urgent') {
+            $query->where('priority', Task::PRIORITY_URGENT);
+        }
+
+        if ($currentFocus === 'pending_review') {
+            $query->where('status', Task::STATUS_PENDING_REVIEW);
         }
     }
 
@@ -251,6 +312,20 @@ class TaskController extends Controller
         return $request->string('completed')->value() === 'show' ? 'show' : 'hide';
     }
 
+    private function resolveTaskTab(Request $request): string
+    {
+        return $request->string('tab')->value() === 'delegated' ? 'delegated' : 'mine';
+    }
+
+    private function resolveTaskFocus(Request $request): string
+    {
+        return match ($request->string('focus')->value()) {
+            'urgent' => 'urgent',
+            'pending_review' => 'pending_review',
+            default => 'all',
+        };
+    }
+
     /**
      * @param  array<string, string>  $overrides
      * @return array<string, string>
@@ -260,6 +335,8 @@ class TaskController extends Controller
         $parameters = [
             'view' => $this->resolveTaskView($request),
             'completed' => $this->resolveCompletedFilter($request),
+            'tab' => $this->resolveTaskTab($request),
+            'focus' => $this->resolveTaskFocus($request),
         ];
 
         $parameters = array_merge($parameters, $overrides);
@@ -272,6 +349,14 @@ class TaskController extends Controller
 
         if (($parameters['completed'] ?? 'hide') === 'hide') {
             unset($parameters['completed']);
+        }
+
+        if (($parameters['tab'] ?? 'mine') === 'mine') {
+            unset($parameters['tab']);
+        }
+
+        if (($parameters['focus'] ?? 'all') === 'all') {
+            unset($parameters['focus']);
         }
 
         return $parameters;

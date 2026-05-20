@@ -11,165 +11,124 @@
         rel="stylesheet"
         crossorigin="anonymous"
     >
-    <style>
-        .tasks-shell {
-            max-width: 1320px;
-        }
-
-        .tasks-hero {
-            background:
-                radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 28%),
-                linear-gradient(135deg, #07111f 0%, #10233b 48%, #1d4ed8 100%);
-            color: #f8fafc;
-            border: 1px solid rgba(148, 163, 184, 0.18);
-        }
-
-        .tasks-hero .hero-muted {
-            color: rgba(226, 232, 240, 0.82);
-        }
-
-        .stat-card {
-            min-width: 220px;
-            border: 1px solid #e2e8f0;
-        }
-
-        .picker-card,
-        .task-card,
-        .comment-box {
-            border: 1px solid #e2e8f0;
-        }
-
-        .assignee-option {
-            transition: background-color 0.18s ease, border-color 0.18s ease;
-        }
-
-        .assignee-option:hover,
-        .assignee-option.is-selected {
-            background: #eff6ff;
-            border-color: #93c5fd;
-        }
-
-        .avatar-pill {
-            width: 2.5rem;
-            height: 2.5rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 999px;
-            font-weight: 700;
-        }
-
-        .task-card .task-meta {
-            font-size: 0.84rem;
-            color: #64748b;
-        }
-
-        .comment-item {
-            border: 1px solid #e2e8f0;
-            background: #f8fafc;
-        }
-
-        .file-input-note {
-            font-size: 0.78rem;
-            color: #64748b;
-        }
-    </style>
 @endpush
 
 @section('content')
-    @php($currentUserInitial = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr(trim($currentUser->name), 0, 1)))
     @php($failedCommentTaskId = (string) old('comment_task_id'))
     @php($failedStatusTaskId = (string) old('status_task_id'))
     @php($selectedAssigneeId = (string) old('assigned_to', $users->first()?->id))
     @php($statusLabels = ['pending' => 'چاوەڕوان', 'in_progress' => 'لە کاردایە', 'pending_review' => 'چاوەڕوانی پشکنین', 'completed' => 'تەواوبووە'])
-    @php($statusClasses = ['pending' => 'text-bg-warning', 'in_progress' => 'text-bg-info', 'pending_review' => 'text-bg-primary', 'completed' => 'text-bg-success'])
+    @php($statusClasses = ['pending' => 'text-bg-warning', 'in_progress' => 'text-bg-primary', 'pending_review' => 'text-bg-info', 'completed' => 'text-bg-success'])
     @php($priorityLabels = ['urgent' => 'Urgent', 'high' => 'High', 'low' => 'Low'])
     @php($priorityClasses = ['urgent' => 'text-bg-danger', 'high' => 'text-bg-warning', 'low' => 'text-bg-secondary'])
     @php($isArchivedView = $currentView === 'archived')
     @php($showCompleted = $completedFilter === 'show')
-    @php($activeViewRouteParameters = $showCompleted ? ['completed' => 'show'] : [])
+    @php($focusRouteParameters = $currentFocus !== 'all' ? ['focus' => $currentFocus] : [])
+    @php($showTaskForm = old('title') !== null || $errors->has('title') || $errors->has('description') || $errors->has('priority') || $errors->has('due_date') || $errors->has('assigned_to'))
+    @php($viewContextRouteParameters = $isArchivedView ? ['view' => 'archived'] : array_merge($showCompleted ? ['completed' => 'show'] : [], $focusRouteParameters))
+    @php($tabRouteParameters = $currentTab === 'delegated' ? ['tab' => 'delegated'] : [])
+    @php($activeViewRouteParameters = array_merge($showCompleted ? ['completed' => 'show'] : [], $tabRouteParameters, $focusRouteParameters))
+    @php($archivedViewRouteParameters = array_merge(['view' => 'archived'], $tabRouteParameters))
+    @php($mineTabRouteParameters = $isArchivedView ? ['view' => 'archived'] : array_merge($showCompleted ? ['completed' => 'show'] : [], $focusRouteParameters))
+    @php($delegatedTabRouteParameters = array_merge($mineTabRouteParameters, ['tab' => 'delegated']))
+    @php($taskDetailRouteParameters = array_merge($viewContextRouteParameters, $tabRouteParameters))
+    @php($activeMineRoute = route('tasks.index') . '#task-lists')
+    @php($activeDelegatedRoute = route('tasks.index', ['tab' => 'delegated']) . '#task-lists')
+    @php($pendingReviewRoute = route('tasks.index', ['tab' => 'delegated', 'focus' => 'pending_review']) . '#task-lists')
+    @php($urgentRoute = route('tasks.index', array_merge($tabRouteParameters, ['focus' => 'urgent'])) . '#task-lists')
+    @php($archivedStatsRoute = route('tasks.index', $archivedViewRouteParameters) . '#task-lists')
+    @php($clearFocusRoute = route('tasks.index', array_merge($showCompleted ? ['completed' => 'show'] : [], $tabRouteParameters)) . '#task-lists')
+    @php($focusLabel = $currentFocus === 'urgent' ? 'Urgent Tasks' : ($currentFocus === 'pending_review' ? 'Pending Review' : null))
 
-    <div class="tasks-shell container-fluid px-3 px-lg-4">
-        <div class="tasks-hero rounded-5 p-4 p-lg-5 shadow-lg mb-4">
-            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-4">
-                <div class="col-lg-8 px-0">
-                    <span class="badge rounded-pill text-bg-light text-dark px-3 py-2 fw-semibold">Tasks Workspace</span>
-                    <h1 class="display-6 fw-bold mt-3 mb-2">تاسکەکانم</h1>
-                    <p class="mb-0 fs-6 hero-muted">
-                        تاسکەکان بە پێی گرنگی، کاتی دواوە و دۆخی بەردەوامی کارەکە ڕێکخراون.
-                        تێبینی و فایلەکانیش لە ژێر هەر تاسکێکدا دەمێنن بۆ ئەوەی هەموو context ـەکە لە یەک شوێن بێت.
-                    </p>
-                </div>
-
-                <div class="d-flex flex-column gap-3">
-                    <form method="POST" action="{{ route('logout') }}" class="text-lg-end">
-                        @csrf
-                        <button type="submit" class="btn btn-outline-light px-4">
-                            چوونەدەرەوە
-                        </button>
-                    </form>
-
-                    <div class="d-flex align-items-center gap-3 rounded-4 border border-light border-opacity-10 bg-white bg-opacity-10 px-3 py-3">
-                        <div class="text-end">
-                            <div class="fw-semibold">{{ $currentUser->name }}</div>
-                            <div class="small hero-muted">{{ $currentUser->email ?: $currentUser->username }}</div>
-                        </div>
-                        <div class="avatar-pill bg-white bg-opacity-10 text-white">
-                            {{ $currentUserInitial !== '' ? $currentUserInitial : '?' }}
+    <div class="container-xxl px-3 px-lg-4">
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-sm-6 col-xl">
+                <a href="{{ $activeMineRoute }}" class="text-decoration-none text-reset">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <span class="badge rounded-pill text-bg-light border text-dark">MT</span>
+                                <span class="small text-secondary">My Tasks</span>
+                            </div>
+                            <div class="small text-uppercase text-secondary fw-semibold">Active For Me</div>
+                            <div class="fs-2 fw-bold text-dark mt-2">{{ $activeAssignedToMeCount }}</div>
                         </div>
                     </div>
-                </div>
+                </a>
             </div>
-        </div>
-
-        <div class="d-flex gap-3 overflow-auto mb-4 pb-2">
-            <div class="stat-card card rounded-4 shadow-sm flex-shrink-0">
-                <div class="card-body">
-                    <div class="text-uppercase text-secondary fw-semibold small">Active For Me</div>
-                    <div class="display-6 fw-bold mt-2 mb-0 text-dark">{{ $activeAssignedToMeCount }}</div>
-                </div>
+            <div class="col-12 col-sm-6 col-xl">
+                <a href="{{ $activeDelegatedRoute }}" class="text-decoration-none text-reset">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <span class="badge rounded-pill text-bg-light border text-dark">AT</span>
+                                <span class="small text-secondary">Assigned</span>
+                            </div>
+                            <div class="small text-uppercase text-secondary fw-semibold">Active By Me</div>
+                            <div class="fs-2 fw-bold text-dark mt-2">{{ $activeAssignedByMeCount }}</div>
+                        </div>
+                    </div>
+                </a>
             </div>
-            <div class="stat-card card rounded-4 shadow-sm flex-shrink-0">
-                <div class="card-body">
-                    <div class="text-uppercase text-secondary fw-semibold small">Active By Me</div>
-                    <div class="display-6 fw-bold mt-2 mb-0 text-dark">{{ $activeAssignedByMeCount }}</div>
-                </div>
+            <div class="col-12 col-sm-6 col-xl">
+                <a href="{{ $pendingReviewRoute }}" class="text-decoration-none text-reset">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <span class="badge rounded-pill text-bg-light border text-dark">PR</span>
+                                <span class="small text-secondary">Review</span>
+                            </div>
+                            <div class="small text-uppercase text-secondary fw-semibold">Pending Review</div>
+                            <div class="fs-2 fw-bold text-dark mt-2">{{ $pendingReviewCount }}</div>
+                        </div>
+                    </div>
+                </a>
             </div>
-            <div class="stat-card card rounded-4 shadow-sm flex-shrink-0">
-                <div class="card-body">
-                    <div class="text-uppercase text-secondary fw-semibold small">Pending Review</div>
-                    <div class="display-6 fw-bold mt-2 mb-0 text-dark">{{ $pendingReviewCount }}</div>
-                </div>
+            <div class="col-12 col-sm-6 col-xl">
+                <a href="{{ $urgentRoute }}" class="text-decoration-none text-reset">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <span class="badge rounded-pill text-bg-light border text-dark">UG</span>
+                                <span class="small text-secondary">Priority</span>
+                            </div>
+                            <div class="small text-uppercase text-secondary fw-semibold">Urgent Tasks</div>
+                            <div class="fs-2 fw-bold text-dark mt-2">{{ $urgentActiveCount }}</div>
+                        </div>
+                    </div>
+                </a>
             </div>
-            <div class="stat-card card rounded-4 shadow-sm flex-shrink-0">
-                <div class="card-body">
-                    <div class="text-uppercase text-secondary fw-semibold small">Urgent Tasks</div>
-                    <div class="display-6 fw-bold mt-2 mb-0 text-dark">{{ $urgentActiveCount }}</div>
-                </div>
-            </div>
-            <div class="stat-card card rounded-4 shadow-sm flex-shrink-0">
-                <div class="card-body">
-                    <div class="text-uppercase text-secondary fw-semibold small">Archived Tasks</div>
-                    <div class="display-6 fw-bold mt-2 mb-0 text-dark">{{ $archivedTaskCount }}</div>
-                </div>
+            <div class="col-12 col-sm-6 col-xl">
+                <a href="{{ $archivedStatsRoute }}" class="text-decoration-none text-reset">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <span class="badge rounded-pill text-bg-light border text-dark">AR</span>
+                                <span class="small text-secondary">Archive</span>
+                            </div>
+                            <div class="small text-uppercase text-secondary fw-semibold">Archived Tasks</div>
+                            <div class="fs-2 fw-bold text-dark mt-2">{{ $archivedTaskCount }}</div>
+                        </div>
+                    </div>
+                </a>
             </div>
         </div>
 
         @if (session('success'))
-            <div class="alert alert-success rounded-4 border-0 shadow-sm" role="alert">
+            <div class="alert alert-success border-0 shadow-sm rounded-4 mb-4" role="alert">
                 {{ session('success') }}
             </div>
         @endif
 
         @if (session('error'))
-            <div class="alert alert-danger rounded-4 border-0 shadow-sm" role="alert">
+            <div class="alert alert-danger border-0 shadow-sm rounded-4 mb-4" role="alert">
                 {{ session('error') }}
             </div>
         @endif
 
-        <div class="card border-0 rounded-5 shadow-sm mb-4">
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
             <div class="card-body p-4">
-                <div class="d-flex flex-column flex-lg-row justify-content-between gap-4 align-items-lg-end">
+                <div class="d-flex flex-column gap-4">
                     <div>
                         <h2 class="h5 fw-bold text-dark mb-2">فلتەر و ئەرشیف</h2>
                         <p class="text-secondary mb-0">
@@ -183,492 +142,593 @@
                         </p>
                     </div>
 
-                    <div class="d-flex flex-column flex-sm-row gap-3 align-items-sm-end">
-                        <div class="btn-group" role="group" aria-label="Task views">
+                    <div class="d-flex flex-column gap-3">
+                        <div class="nav nav-underline gap-3 border-bottom pb-2">
                             <a
                                 href="{{ route('tasks.index', $activeViewRouteParameters) }}"
-                                class="btn {{ $isArchivedView ? 'btn-outline-dark' : 'btn-dark' }}"
+                                class="nav-link px-0 {{ $isArchivedView ? 'text-secondary' : 'active text-dark fw-bold' }}"
                             >
                                 چالاک
                             </a>
                             <a
-                                href="{{ route('tasks.index', ['view' => 'archived']) }}"
-                                class="btn {{ $isArchivedView ? 'btn-dark' : 'btn-outline-dark' }}"
+                                href="{{ route('tasks.index', $archivedViewRouteParameters) }}"
+                                class="nav-link px-0 {{ $isArchivedView ? 'active text-dark fw-bold' : 'text-secondary' }}"
                             >
                                 ئەرشیف
                             </a>
                         </div>
 
                         @unless ($isArchivedView)
-                            <form method="GET" action="{{ route('tasks.index') }}" class="d-flex gap-2 align-items-end">
-                                <div>
+                            <form method="GET" action="{{ route('tasks.index') }}" class="row g-3 align-items-end">
+                                <input type="hidden" name="tab" value="{{ $currentTab }}">
+                                @if ($currentFocus !== 'all')
+                                    <input type="hidden" name="focus" value="{{ $currentFocus }}">
+                                @endif
+                                <div class="col-12 col-sm-6 col-lg-4">
                                     <label for="completed_filter" class="form-label small fw-semibold text-uppercase text-secondary">Completed</label>
-                                    <select id="completed_filter" name="completed" class="form-select">
+                                    <select id="completed_filter" name="completed" class="form-select bg-light border-0 rounded-4">
                                         <option value="hide" @selected(! $showCompleted)>Hide Done</option>
                                         <option value="show" @selected($showCompleted)>Show Done</option>
                                     </select>
                                 </div>
-                                <button type="submit" class="btn btn-dark px-4">Apply</button>
+                                <div class="col-12 col-sm-auto">
+                                    <button type="submit" class="btn btn-primary rounded-4 px-4">Apply</button>
+                                </div>
                             </form>
                         @endunless
+
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="btn btn-outline-secondary rounded-4 px-4">
+                                چوونەدەرەوە
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="card border-0 rounded-5 shadow-sm mb-4">
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
             <div class="card-body p-4 p-lg-5">
-                <div class="mb-4">
-                    <h2 class="h3 fw-bold text-dark mb-2">زیادکردنی تاسکی نوێ</h2>
-                    <p class="text-secondary mb-0">
-                        تاسکەکە بە priority و due date و وەرگری ڕوون بسازە بۆ ئەوەی کارەکان باشتر delegate بکرێن.
-                    </p>
+                <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+                    <div>
+                        <h2 class="h4 fw-bold text-dark mb-2">زیادکردنی تاسکی نوێ</h2>
+                        <p class="text-secondary mb-0">
+                            کاتێک پێویستت پێیە، فۆڕمەکە بکەرەوە و تاسکەکە بە شێوەی ڕێکخراو زیاد بکە.
+                        </p>
+                    </div>
+
+                    <button
+                        class="btn btn-primary rounded-4 px-4"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#add-task-panel"
+                        aria-expanded="{{ $showTaskForm ? 'true' : 'false' }}"
+                        aria-controls="add-task-panel"
+                    >
+                        زیادکردنی تاسک
+                    </button>
                 </div>
 
-                <form method="POST" action="{{ route('tasks.store') }}">
-                    @csrf
+                <div id="add-task-panel" class="collapse{{ $showTaskForm ? ' show' : '' }} mt-4">
+                    <form method="POST" action="{{ route('tasks.store') }}">
+                        @csrf
+                        <input type="hidden" name="tab" value="{{ $currentTab }}">
+                        <input type="hidden" name="view" value="{{ $currentView }}">
+                        <input type="hidden" name="completed" value="{{ $completedFilter }}">
+                        <input type="hidden" name="focus" value="{{ $currentFocus }}">
 
-                    <div class="row g-4">
-                        <div class="col-xl-7">
-                            <div class="mb-4">
-                                <label for="title" class="form-label fw-semibold">ناونیشانی تاسک</label>
-                                <input
-                                    id="title"
-                                    name="title"
-                                    type="text"
-                                    value="{{ old('title') }}"
-                                    class="form-control form-control-lg @error('title') is-invalid @enderror"
-                                    placeholder="ناونیشانی تاسک..."
-                                >
-                                @error('title')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
+                        <div class="row g-4">
+                            <div class="col-xl-7">
+                                <div class="mb-4">
+                                    <label for="title" class="form-label fw-semibold">ناونیشانی تاسک</label>
+                                    <input
+                                        id="title"
+                                        name="title"
+                                        type="text"
+                                        value="{{ old('title') }}"
+                                        class="form-control form-control-lg bg-light border-0 rounded-4 @error('title') is-invalid @enderror"
+                                        placeholder="ناونیشانی تاسک..."
+                                    >
+                                    @error('title')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+
+                                <div class="mb-0">
+                                    <label for="description" class="form-label fw-semibold">وردەکاری و context</label>
+                                    <textarea
+                                        id="description"
+                                        name="description"
+                                        rows="6"
+                                        class="form-control bg-light border-0 rounded-4 @error('description') is-invalid @enderror"
+                                        placeholder="وردەکاری زیاتر بۆ تاسکەکە..."
+                                    >{{ old('description') }}</textarea>
+                                    @error('description')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
                             </div>
 
-                            <div class="mb-0">
-                                <label for="description" class="form-label fw-semibold">وردەکاری و context</label>
-                                <textarea
-                                    id="description"
-                                    name="description"
-                                    rows="6"
-                                    class="form-control @error('description') is-invalid @enderror"
-                                    placeholder="وردەکاری زیاتر بۆ تاسکەکە..."
-                                >{{ old('description') }}</textarea>
-                                @error('description')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                        </div>
-
-                        <div class="col-xl-5">
-                            <div class="picker-card rounded-5 bg-body-tertiary p-4 h-100">
-                                <div class="row g-3">
-                                    <div class="col-sm-6 col-xl-12">
-                                        <label for="priority" class="form-label fw-semibold">Priority</label>
-                                        <select id="priority" name="priority" class="form-select form-select-lg @error('priority') is-invalid @enderror">
-                                            @foreach ($taskPriorities as $priority)
-                                                <option value="{{ $priority }}" @selected(old('priority', 'high') === $priority)>
-                                                    {{ $priorityLabels[$priority] ?? $priority }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                        @error('priority')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="col-sm-6 col-xl-12">
-                                        <label for="due_date" class="form-label fw-semibold">Due Date</label>
-                                        <input
-                                            id="due_date"
-                                            name="due_date"
-                                            type="date"
-                                            value="{{ old('due_date') }}"
-                                            class="form-control form-control-lg @error('due_date') is-invalid @enderror"
-                                        >
-                                        @error('due_date')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="col-12">
-                                        <div class="d-flex align-items-center justify-content-between gap-3 mb-2">
-                                            <label for="assignee_search" class="form-label fw-semibold mb-0">Assignee</label>
-                                            <span class="small text-secondary">گەڕان + هەڵبژاردن</span>
-                                        </div>
-
-                                        <input type="hidden" name="assigned_to" id="assigned_to" value="{{ $selectedAssigneeId }}">
-
-                                        <div class="rounded-4 bg-white border p-3 shadow-sm">
-                                            <div id="selected_assignee_preview" class="rounded-4 bg-body-tertiary border p-3 small text-secondary mb-3">
-                                                وەرگر هەڵبژێرە
+                            <div class="col-xl-5">
+                                <div class="card border-0 bg-light rounded-4 h-100">
+                                    <div class="card-body p-4">
+                                        <div class="row g-3">
+                                            <div class="col-sm-6 col-xl-12">
+                                                <label for="priority" class="form-label fw-semibold">Priority</label>
+                                                <select id="priority" name="priority" class="form-select form-select-lg bg-white border-0 rounded-4 @error('priority') is-invalid @enderror">
+                                                    @foreach ($taskPriorities as $priority)
+                                                        <option value="{{ $priority }}" @selected(old('priority', 'high') === $priority)>
+                                                            {{ $priorityLabels[$priority] ?? $priority }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                @error('priority')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
                                             </div>
 
-                                            <input
-                                                id="assignee_search"
-                                                type="text"
-                                                class="form-control mb-3"
-                                                placeholder="بە ناو یان username بگەڕێ..."
-                                                @disabled($users->isEmpty())
-                                            >
+                                            <div class="col-sm-6 col-xl-12">
+                                                <label for="due_date" class="form-label fw-semibold">Due Date</label>
+                                                <input
+                                                    id="due_date"
+                                                    name="due_date"
+                                                    type="date"
+                                                    value="{{ old('due_date') }}"
+                                                    class="form-control form-control-lg bg-white border-0 rounded-4 @error('due_date') is-invalid @enderror"
+                                                >
+                                                @error('due_date')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
+                                            </div>
 
-                                            <div id="assignee_picker_list" class="d-grid gap-2" style="max-height: 280px; overflow-y: auto;">
-                                                @forelse ($users as $assignableUser)
-                                                    @php($userInitial = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr(trim($assignableUser->name), 0, 1)))
-                                                    <button
-                                                        type="button"
-                                                        class="assignee-option btn btn-light border text-start d-flex align-items-center justify-content-between gap-3"
-                                                        data-user-id="{{ $assignableUser->id }}"
-                                                        data-user-name="{{ $assignableUser->name }}"
-                                                        data-user-username="{{ $assignableUser->username }}"
-                                                        data-user-email="{{ $assignableUser->email }}"
-                                                    >
-                                                        <span class="d-flex align-items-center gap-3 min-w-0">
-                                                            <span class="avatar-pill bg-primary-subtle text-primary-emphasis flex-shrink-0">
-                                                                {{ $userInitial !== '' ? $userInitial : '?' }}
-                                                            </span>
-                                                            <span class="min-w-0">
-                                                                <span class="d-block fw-semibold text-dark text-truncate">{{ $assignableUser->name }}</span>
-                                                                <span class="d-block small text-secondary text-truncate">{{ $assignableUser->username }}</span>
-                                                            </span>
-                                                        </span>
-                                                        <span class="small text-secondary text-truncate">{{ $assignableUser->email ?: '---' }}</span>
-                                                    </button>
-                                                @empty
-                                                    <div class="alert alert-secondary mb-0">
-                                                        user ی تر بەردەست نییە بۆ سپاردن.
+                                            <div class="col-12">
+                                                <div class="d-flex align-items-center justify-content-between gap-3 mb-2">
+                                                    <label for="assignee_search" class="form-label fw-semibold mb-0">Assignee</label>
+                                                    <span class="small text-secondary">گەڕان + هەڵبژاردن</span>
+                                                </div>
+
+                                                <input type="hidden" name="assigned_to" id="assigned_to" value="{{ $selectedAssigneeId }}">
+
+                                                <div class="card border-0 shadow-sm rounded-4">
+                                                    <div class="card-body p-3">
+                                                        <div id="selected_assignee_preview" class="rounded-4 bg-body-tertiary p-3 small text-secondary mb-3">
+                                                            وەرگر هەڵبژێرە
+                                                        </div>
+
+                                                        <input
+                                                            id="assignee_search"
+                                                            type="text"
+                                                            class="form-control bg-light border-0 rounded-4 mb-3"
+                                                            placeholder="بە ناو یان username بگەڕێ..."
+                                                            @disabled($users->isEmpty())
+                                                        >
+
+                                                        <div id="assignee_picker_list" class="d-grid gap-2">
+                                                            @forelse ($users as $assignableUser)
+                                                                @php($userInitial = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr(trim($assignableUser->name), 0, 1)))
+                                                                <button
+                                                                    type="button"
+                                                                    class="assignee-option btn btn-light border-0 shadow-sm text-start d-flex align-items-center justify-content-between gap-3 rounded-4 p-3"
+                                                                    data-user-id="{{ $assignableUser->id }}"
+                                                                    data-user-name="{{ $assignableUser->name }}"
+                                                                    data-user-username="{{ $assignableUser->username }}"
+                                                                    data-user-email="{{ $assignableUser->email }}"
+                                                                >
+                                                                    <span class="d-flex align-items-center gap-3 min-w-0">
+                                                                        <span class="badge rounded-pill text-bg-light border text-dark px-3 py-2">
+                                                                            {{ $userInitial !== '' ? $userInitial : '?' }}
+                                                                        </span>
+                                                                        <span class="min-w-0">
+                                                                            <span class="d-block fw-semibold text-dark text-truncate">{{ $assignableUser->name }}</span>
+                                                                            <span class="d-block small text-secondary text-truncate">{{ $assignableUser->username }}</span>
+                                                                        </span>
+                                                                    </span>
+                                                                    <span class="small text-secondary text-truncate">{{ $assignableUser->email ?: '---' }}</span>
+                                                                </button>
+                                                            @empty
+                                                                <div class="alert alert-secondary border-0 rounded-4 mb-0">
+                                                                    user ی تر بەردەست نییە بۆ سپاردن.
+                                                                </div>
+                                                            @endforelse
+                                                        </div>
                                                     </div>
-                                                @endforelse
+                                                </div>
+
+                                                @error('assigned_to')
+                                                    <div class="text-danger small mt-2">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+
+                                            <div class="col-12">
+                                                <button type="submit" class="btn btn-primary btn-lg rounded-4 w-100" @disabled($users->isEmpty())>
+                                                    زیادکردنی تاسک
+                                                </button>
                                             </div>
                                         </div>
-
-                                        @error('assigned_to')
-                                            <div class="text-danger small mt-2">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="col-12">
-                                        <button type="submit" class="btn btn-primary btn-lg w-100" @disabled($users->isEmpty())>
-                                            زیادکردنی تاسک
-                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </form>
+                    </form>
+                </div>
             </div>
         </div>
 
-        <div class="row g-4">
-            <div class="col-xl-6">
-                <div class="card border-0 rounded-5 shadow-sm h-100">
-                    <div class="card-body p-4 p-lg-5">
-                        <div class="d-flex align-items-center gap-2 mb-4">
-                            <span class="rounded-circle bg-danger" style="width: 10px; height: 10px;"></span>
-                            <h2 class="h4 fw-bold mb-0 text-dark">{{ $isArchivedView ? 'ئەرشیفی تاسکە سپێردراوەکان بۆ من' : 'تاسکە سپێردراوەکان بۆ من' }}</h2>
+        <div id="task-lists" class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4 p-lg-5">
+                <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+                    <div>
+                        <h2 class="h4 fw-bold text-dark mb-2">Task Lists</h2>
+                        <p class="text-secondary mb-0">
+                            بە tab ـەکان نێوان تاسکەکانی خۆت و تاسکەکانەی تۆ سپاردووت بگۆڕە.
+                        </p>
+                    </div>
+
+                    <div class="nav nav-underline gap-3 border-bottom pb-2">
+                        <a
+                            href="{{ route('tasks.index', $mineTabRouteParameters) }}"
+                            class="nav-link px-0 {{ $currentTab === 'mine' ? 'active text-dark fw-bold' : 'text-secondary' }}"
+                        >
+                            My Tasks
+                        </a>
+                        <a
+                            href="{{ route('tasks.index', $delegatedTabRouteParameters) }}"
+                            class="nav-link px-0 {{ $currentTab === 'delegated' ? 'active text-dark fw-bold' : 'text-secondary' }}"
+                        >
+                            Tasks I Assigned
+                        </a>
+                    </div>
+                </div>
+
+                @if ($currentFocus !== 'all')
+                    <div class="alert border-0 shadow-sm rounded-4 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
+                        <div>
+                            <div class="small text-uppercase fw-semibold text-secondary mb-1">Active Filter</div>
+                            <div class="fw-semibold text-dark">{{ $focusLabel }}</div>
                         </div>
+                        <a href="{{ $clearFocusRoute }}" class="btn btn-outline-dark rounded-4">Clear Filter</a>
+                    </div>
+                @endif
 
-                        <div class="d-grid gap-4">
-                            @forelse ($assignedToMe as $task)
-                                @php($isOverdue = $task->due_date && $task->due_date->isPast() && $task->status !== 'completed')
-                                <article class="task-card rounded-5 bg-body-tertiary p-4">
-                                    <div class="d-flex flex-column gap-4">
-                                        <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
-                                            <div>
-                                                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                                                    <h3 class="h5 fw-bold mb-0 text-dark">{{ $task->title }}</h3>
-                                                    <span class="badge rounded-pill {{ $priorityClasses[$task->priority] ?? 'text-bg-secondary' }}">
-                                                        {{ $priorityLabels[$task->priority] ?? $task->priority }}
-                                                    </span>
-                                                    <span class="badge rounded-pill {{ $statusClasses[$task->status] ?? 'text-bg-secondary' }}">
-                                                        {{ $statusLabels[$task->status] ?? $task->status }}
-                                                    </span>
-                                                </div>
+                @if ($currentTab === 'mine')
+                    <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
+                        <h3 class="h5 fw-bold text-dark mb-0">{{ $isArchivedView ? 'ئەرشیفی تاسکە سپێردراوەکان بۆ من' : 'تاسکە سپێردراوەکان بۆ من' }}</h3>
+                        <span class="small text-secondary">{{ $assignedToMe->count() }} item</span>
+                    </div>
 
-                                                @if ($task->description)
-                                                    <p class="mb-3 text-secondary">{{ $task->description }}</p>
-                                                @endif
-
-                                                <div class="d-flex flex-wrap gap-3 task-meta">
-                                                    <span>سپێردراوە لەلایەن: {{ $task->assigner?->name ?? 'نادیار' }}</span>
-                                                    <span>کاتی دواوە: {{ $task->due_date?->format('Y-m-d') ?? 'دیاری نەکراوە' }}</span>
-                                                    @if ($task->archived_at)
-                                                        <span>ئەرشیف: {{ $task->archived_at->format('Y-m-d H:i') }}</span>
-                                                    @endif
-                                                    @if ($isOverdue)
-                                                        <span class="fw-semibold text-danger">ئەو تاسکە دوا کەوتووە</span>
-                                                    @endif
-                                                </div>
+                    <div class="d-grid gap-3">
+                        @forelse ($assignedToMe as $task)
+                            @php($isOverdue = $task->due_date && $task->due_date->isPast() && $task->status !== 'completed')
+                            @php($commentsCollapseId = 'task-comments-' . $task->id)
+                            @php($showCommentsPanel = $failedCommentTaskId === (string) $task->id)
+                            <article class="card border-0 shadow-sm rounded-4">
+                                <div class="card-body p-3 p-lg-4">
+                                    <a
+                                        href="{{ route('tasks.show', array_merge(['task' => $task->id], $taskDetailRouteParameters)) }}"
+                                        class="text-decoration-none text-reset d-block"
+                                    >
+                                        <div class="d-flex flex-column gap-3">
+                                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                                <h3 class="h5 fw-bold mb-0 text-dark">{{ $task->title }}</h3>
+                                                <span class="badge rounded-pill {{ $priorityClasses[$task->priority] ?? 'text-bg-secondary' }}">
+                                                    {{ $priorityLabels[$task->priority] ?? $task->priority }}
+                                                </span>
+                                                <span class="badge rounded-pill {{ $statusClasses[$task->status] ?? 'text-bg-secondary' }}">
+                                                    {{ $statusLabels[$task->status] ?? $task->status }}
+                                                </span>
                                             </div>
 
-                                            <div class="rounded-4 border bg-white p-3" style="min-width: 280px;">
-                                                <form method="POST" action="{{ route('tasks.status.update', $task) }}">
+                                            @if ($task->description)
+                                                <p class="text-secondary mb-0">{{ $task->description }}</p>
+                                            @endif
+
+                                            <div class="small text-secondary d-flex flex-column gap-1">
+                                                <div>سپێردراوە لەلایەن: {{ $task->assigner?->name ?? 'نادیار' }}</div>
+                                                <div>کاتی دواوە: {{ $task->due_date?->format('Y-m-d') ?? 'دیاری نەکراوە' }}</div>
+                                                @if ($task->archived_at)
+                                                    <div>ئەرشیف: {{ $task->archived_at->format('Y-m-d H:i') }}</div>
+                                                @endif
+                                                @if ($isOverdue)
+                                                    <div class="text-danger fw-semibold">ئەو تاسکە دوا کەوتووە</div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </a>
+
+                                    <div class="border-top pt-3 mt-3">
+                                        <form method="POST" action="{{ route('tasks.status.update', $task) }}" class="row g-2 align-items-end">
+                                            @csrf
+                                            @method('PATCH')
+                                            <input type="hidden" name="status_task_id" value="{{ $task->id }}">
+                                            <input type="hidden" name="view" value="{{ $currentView }}">
+                                            <input type="hidden" name="completed" value="{{ $completedFilter }}">
+                                            <input type="hidden" name="tab" value="{{ $currentTab }}">
+                                            <input type="hidden" name="focus" value="{{ $currentFocus }}">
+                                            <div class="col-12 col-md-8 col-xl-6">
+                                                <label for="status-{{ $task->id }}" class="form-label small fw-semibold text-uppercase text-secondary mb-1">Status</label>
+                                                <select
+                                                    id="status-{{ $task->id }}"
+                                                    name="status"
+                                                    class="form-select bg-light border-0 rounded-3 @if ($failedStatusTaskId === (string) $task->id && $errors->has('status')) is-invalid @endif"
+                                                >
+                                                    @foreach ($taskStatuses as $status)
+                                                        <option value="{{ $status }}" @selected($task->status === $status)>
+                                                            {{ $statusLabels[$status] ?? $status }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                @if ($failedStatusTaskId === (string) $task->id && $errors->has('status'))
+                                                    <div class="invalid-feedback d-block">{{ $errors->first('status') }}</div>
+                                                @endif
+                                            </div>
+                                            <div class="col-12 col-sm-auto">
+                                                <button type="submit" class="btn btn-primary rounded-3 px-4 w-100">Save</button>
+                                            </div>
+                                        </form>
+
+                                        <div class="d-flex flex-column flex-sm-row gap-2 mt-3">
+                                            <button
+                                                class="btn btn-outline-secondary rounded-3"
+                                                type="button"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#{{ $commentsCollapseId }}"
+                                                aria-expanded="{{ $showCommentsPanel ? 'true' : 'false' }}"
+                                                aria-controls="{{ $commentsCollapseId }}"
+                                            >
+                                                تێبینی و فایلەکان ({{ $task->comments->count() }})
+                                            </button>
+
+                                            @if (! $isArchivedView && $task->is_completed)
+                                                <form method="POST" action="{{ route('tasks.archive', $task) }}">
                                                     @csrf
                                                     @method('PATCH')
-                                                    <input type="hidden" name="status_task_id" value="{{ $task->id }}">
                                                     <input type="hidden" name="view" value="{{ $currentView }}">
                                                     <input type="hidden" name="completed" value="{{ $completedFilter }}">
-                                                    <label for="status-{{ $task->id }}" class="form-label small fw-semibold text-uppercase text-secondary">Status</label>
-                                                    <div class="d-flex gap-2">
-                                                        <select
-                                                            id="status-{{ $task->id }}"
-                                                            name="status"
-                                                            class="form-select @if ($failedStatusTaskId === (string) $task->id && $errors->has('status')) is-invalid @endif"
-                                                        >
-                                                            @foreach ($taskStatuses as $status)
-                                                                <option value="{{ $status }}" @selected($task->status === $status)>
-                                                                    {{ $statusLabels[$status] ?? $status }}
-                                                                </option>
-                                                            @endforeach
-                                                        </select>
-                                                        <button type="submit" class="btn btn-dark px-3">Save</button>
-                                                    </div>
-                                                    @if ($failedStatusTaskId === (string) $task->id && $errors->has('status'))
-                                                        <div class="invalid-feedback d-block">{{ $errors->first('status') }}</div>
-                                                    @endif
+                                                    <input type="hidden" name="tab" value="{{ $currentTab }}">
+                                                    <input type="hidden" name="focus" value="{{ $currentFocus }}">
+                                                    <button type="submit" class="btn btn-outline-secondary rounded-3 w-100">ئەرشیفکردنی تاسک</button>
                                                 </form>
-
-                                                @if (! $isArchivedView && $task->is_completed)
-                                                    <form method="POST" action="{{ route('tasks.archive', $task) }}" class="mt-3">
-                                                        @csrf
-                                                        @method('PATCH')
-                                                        <input type="hidden" name="view" value="{{ $currentView }}">
-                                                        <input type="hidden" name="completed" value="{{ $completedFilter }}">
-                                                        <button type="submit" class="btn btn-outline-secondary w-100">ئەرشیفکردنی تاسک</button>
-                                                    </form>
-                                                @elseif ($task->archived_at)
-                                                    <div class="small text-secondary mt-3">ئەرشیف کراوە لە {{ $task->archived_at->format('Y-m-d H:i') }}</div>
-                                                @endif
-                                            </div>
+                                            @elseif ($task->archived_at)
+                                                <div class="small text-secondary align-self-center">ئەرشیف کراوە لە {{ $task->archived_at->format('Y-m-d H:i') }}</div>
+                                            @endif
                                         </div>
 
-                                        <div class="comment-box rounded-5 bg-white p-4">
-                                            <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
-                                                <h4 class="h6 fw-bold mb-0 text-dark">تێبینی و هاوپێچەکان</h4>
-                                                <span class="small text-secondary">{{ $task->comments->count() }} item</span>
-                                            </div>
+                                        <div id="{{ $commentsCollapseId }}" class="collapse{{ $showCommentsPanel ? ' show' : '' }} mt-3">
+                                            <div class="border-top pt-3">
+                                                <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                                                    <h4 class="h6 fw-bold mb-0 text-dark">تێبینی و هاوپێچەکان</h4>
+                                                    <span class="small text-secondary">{{ $task->comments->count() }} item</span>
+                                                </div>
 
-                                            <div class="d-grid gap-3">
                                                 @forelse ($task->comments as $comment)
                                                     @php($commentInitial = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr(trim($comment->user?->name ?? '?'), 0, 1)))
-                                                    <div class="comment-item rounded-4 p-3">
-                                                        <div class="d-flex align-items-start gap-3">
-                                                            <div class="avatar-pill bg-secondary-subtle text-secondary-emphasis flex-shrink-0">
-                                                                {{ $commentInitial !== '' ? $commentInitial : '?' }}
+                                                    <div class="d-flex align-items-start gap-3 py-3 border-top">
+                                                        <span class="badge rounded-pill text-bg-light text-dark px-3 py-2 flex-shrink-0">
+                                                            {{ $commentInitial !== '' ? $commentInitial : '?' }}
+                                                        </span>
+                                                        <div class="flex-grow-1 min-w-0">
+                                                            <div class="d-flex flex-wrap align-items-center gap-2 small text-secondary">
+                                                                <span class="fw-semibold text-dark">{{ $comment->user?->name ?? 'نادیار' }}</span>
+                                                                <span>{{ $comment->created_at?->diffForHumans() }}</span>
                                                             </div>
-                                                            <div class="flex-grow-1 min-w-0">
-                                                                <div class="d-flex flex-wrap align-items-center gap-2 small text-secondary">
-                                                                    <span class="fw-semibold text-dark">{{ $comment->user?->name ?? 'نادیار' }}</span>
-                                                                    <span>{{ $comment->created_at?->diffForHumans() }}</span>
-                                                                </div>
-                                                                @if ($comment->comment)
-                                                                    <p class="mt-2 mb-0 text-secondary">{{ $comment->comment }}</p>
-                                                                @endif
-                                                                @if ($comment->attachment_path)
-                                                                    <a
-                                                                        href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($comment->attachment_path) }}"
-                                                                        target="_blank"
-                                                                        class="btn btn-sm btn-outline-primary mt-3"
-                                                                    >
-                                                                        {{ $comment->attachment_name ?: 'Attachment' }}
-                                                                    </a>
-                                                                @endif
-                                                            </div>
+                                                            @if ($comment->comment)
+                                                                <p class="mt-2 mb-0 text-secondary">{{ $comment->comment }}</p>
+                                                            @endif
+                                                            @if ($comment->attachment_path)
+                                                                <a
+                                                                    href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($comment->attachment_path) }}"
+                                                                    target="_blank"
+                                                                    class="btn btn-sm btn-outline-primary rounded-3 mt-3"
+                                                                >
+                                                                    {{ $comment->attachment_name ?: 'Attachment' }}
+                                                                </a>
+                                                            @endif
                                                         </div>
                                                     </div>
                                                 @empty
-                                                    <div class="alert alert-light border mb-0">
-                                                        هێشتا هیچ تێبینی یان فایلێک بۆ ئەم تاسکە زیاد نەکراوە.
-                                                    </div>
+                                                    <p class="small text-secondary mb-0">هێشتا هیچ تێبینی یان فایلێک بۆ ئەم تاسکە زیاد نەکراوە.</p>
                                                 @endforelse
-                                            </div>
 
-                                            <form
-                                                class="mt-4 rounded-4 border bg-body-tertiary p-3"
-                                                method="POST"
-                                                action="{{ route('tasks.comments.store', $task) }}"
-                                                enctype="multipart/form-data"
-                                            >
-                                                @csrf
-                                                <input type="hidden" name="comment_task_id" value="{{ $task->id }}">
-                                                <input type="hidden" name="view" value="{{ $currentView }}">
-                                                <input type="hidden" name="completed" value="{{ $completedFilter }}">
-                                                <div class="mb-3">
-                                                    <textarea
-                                                        name="comment"
-                                                        rows="3"
-                                                        class="form-control @if ($failedCommentTaskId === (string) $task->id && ($errors->has('comment') || $errors->has('attachment'))) is-invalid @endif"
-                                                        placeholder="تێبینی یان ڕوونکردنەوە زیاد بکە..."
-                                                    >{{ $failedCommentTaskId === (string) $task->id ? old('comment') : '' }}</textarea>
-                                                    @if ($failedCommentTaskId === (string) $task->id && ($errors->has('comment') || $errors->has('attachment')))
-                                                        <div class="invalid-feedback d-block">
-                                                            {{ $errors->first('comment') ?: $errors->first('attachment') }}
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                                <div class="d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-center">
-                                                    <div class="w-100">
-                                                        <input name="attachment" type="file" class="form-control">
-                                                        <div class="file-input-note mt-2">PDF, images, Office files, or text up to 10MB.</div>
+                                                <form
+                                                    class="row g-3 mt-1"
+                                                    method="POST"
+                                                    action="{{ route('tasks.comments.store', $task) }}"
+                                                    enctype="multipart/form-data"
+                                                >
+                                                    @csrf
+                                                    <input type="hidden" name="comment_task_id" value="{{ $task->id }}">
+                                                    <input type="hidden" name="view" value="{{ $currentView }}">
+                                                    <input type="hidden" name="completed" value="{{ $completedFilter }}">
+                                                    <input type="hidden" name="tab" value="{{ $currentTab }}">
+                                                    <input type="hidden" name="focus" value="{{ $currentFocus }}">
+                                                    <div class="col-12">
+                                                        <textarea
+                                                            name="comment"
+                                                            rows="3"
+                                                            class="form-control bg-light border-0 rounded-3 @if ($failedCommentTaskId === (string) $task->id && ($errors->has('comment') || $errors->has('attachment'))) is-invalid @endif"
+                                                            placeholder="تێبینی یان ڕوونکردنەوە زیاد بکە..."
+                                                        >{{ $failedCommentTaskId === (string) $task->id ? old('comment') : '' }}</textarea>
+                                                        @if ($failedCommentTaskId === (string) $task->id && ($errors->has('comment') || $errors->has('attachment')))
+                                                            <div class="invalid-feedback d-block">
+                                                                {{ $errors->first('comment') ?: $errors->first('attachment') }}
+                                                            </div>
+                                                        @endif
                                                     </div>
-                                                    <button type="submit" class="btn btn-primary flex-shrink-0 px-4">زیادکردنی تێبینی</button>
-                                                </div>
-                                            </form>
+                                                    <div class="col-12 col-lg">
+                                                        <input name="attachment" type="file" class="form-control bg-light border-0 rounded-3">
+                                                        <div class="small text-secondary mt-2">PDF, images, Office files, or text up to 10MB.</div>
+                                                    </div>
+                                                    <div class="col-12 col-lg-auto">
+                                                        <button type="submit" class="btn btn-primary rounded-3 px-4 w-100">Add Comment</button>
+                                                    </div>
+                                                </form>
+                                            </div>
                                         </div>
                                     </div>
-                                </article>
-                            @empty
-                                <div class="alert alert-light border rounded-4 mb-0">
-                                    {{ $isArchivedView ? 'هیچ تاسکێکی ئەرشیڤکراوت نییە.' : 'هیچ تاسکێکت نییە لە ئێستادا.' }}
                                 </div>
-                            @endforelse
-                        </div>
+                            </article>
+                        @empty
+                            <div class="alert alert-light border-0 rounded-4 shadow-sm mb-0">
+                                {{ $isArchivedView ? 'هیچ تاسکێکی ئەرشیڤکراوت نییە.' : 'هیچ تاسکێکت نییە لە ئێستادا.' }}
+                            </div>
+                        @endforelse
                     </div>
-                </div>
-            </div>
+                @else
+                    <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
+                        <h3 class="h5 fw-bold text-dark mb-0">{{ $isArchivedView ? 'ئەرشیفی ئەو تاسکانەی من دامنە' : 'ئەو تاسکانەی من دامنە' }}</h3>
+                        <span class="small text-secondary">{{ $assignedByMe->count() }} item</span>
+                    </div>
 
-            <div class="col-xl-6">
-                <div class="card border-0 rounded-5 shadow-sm h-100">
-                    <div class="card-body p-4 p-lg-5">
-                        <div class="d-flex align-items-center gap-2 mb-4">
-                            <span class="rounded-circle bg-success" style="width: 10px; height: 10px;"></span>
-                            <h2 class="h4 fw-bold mb-0 text-dark">{{ $isArchivedView ? 'ئەرشیفی ئەو تاسکانەی من دامنە' : 'ئەو تاسکانەی من دامنە' }}</h2>
-                        </div>
+                    <div class="d-grid gap-3">
+                        @forelse ($assignedByMe as $task)
+                            @php($isOverdue = $task->due_date && $task->due_date->isPast() && $task->status !== 'completed')
+                            @php($commentsCollapseId = 'task-comments-' . $task->id)
+                            @php($showCommentsPanel = $failedCommentTaskId === (string) $task->id)
+                            <article class="card border-0 shadow-sm rounded-4">
+                                <div class="card-body p-3 p-lg-4">
+                                    <a
+                                        href="{{ route('tasks.show', array_merge(['task' => $task->id], $taskDetailRouteParameters)) }}"
+                                        class="text-decoration-none text-reset d-block"
+                                    >
+                                        <div class="d-flex flex-column gap-3">
+                                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                                <h3 class="h5 fw-bold mb-0 text-dark">{{ $task->title }}</h3>
+                                                <span class="badge rounded-pill {{ $priorityClasses[$task->priority] ?? 'text-bg-secondary' }}">
+                                                    {{ $priorityLabels[$task->priority] ?? $task->priority }}
+                                                </span>
+                                                <span class="badge rounded-pill {{ $statusClasses[$task->status] ?? 'text-bg-secondary' }}">
+                                                    {{ $statusLabels[$task->status] ?? $task->status }}
+                                                </span>
+                                            </div>
 
-                        <div class="d-grid gap-4">
-                            @forelse ($assignedByMe as $task)
-                                @php($isOverdue = $task->due_date && $task->due_date->isPast() && $task->status !== 'completed')
-                                <article class="task-card rounded-5 bg-body-tertiary p-4">
-                                    <div class="d-flex flex-column gap-4">
-                                        <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
-                                            <div>
-                                                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                                                    <h3 class="h5 fw-bold mb-0 text-dark">{{ $task->title }}</h3>
-                                                    <span class="badge rounded-pill {{ $priorityClasses[$task->priority] ?? 'text-bg-secondary' }}">
-                                                        {{ $priorityLabels[$task->priority] ?? $task->priority }}
-                                                    </span>
-                                                    <span class="badge rounded-pill {{ $statusClasses[$task->status] ?? 'text-bg-secondary' }}">
-                                                        {{ $statusLabels[$task->status] ?? $task->status }}
-                                                    </span>
+                                            @if ($task->description)
+                                                <p class="text-secondary mb-0">{{ $task->description }}</p>
+                                            @endif
+
+                                            <div class="small text-secondary d-flex flex-column gap-1">
+                                                <div>سپێردراوە بۆ: {{ $task->assignee?->name ?? 'نادیار' }}</div>
+                                                <div>کاتی دواوە: {{ $task->due_date?->format('Y-m-d') ?? 'دیاری نەکراوە' }}</div>
+                                                <div>
+                                                    {{ $task->status === 'completed' ? 'کارەکە تەواوبووە' : ($task->status === 'pending_review' ? 'لە چاوەڕوانی پشکنینە' : 'کارەکە بەردەوامە') }}
                                                 </div>
-
-                                                @if ($task->description)
-                                                    <p class="mb-3 text-secondary">{{ $task->description }}</p>
+                                                @if ($task->archived_at)
+                                                    <div>ئەرشیف: {{ $task->archived_at->format('Y-m-d H:i') }}</div>
                                                 @endif
+                                                @if ($isOverdue)
+                                                    <div class="text-danger fw-semibold">ئەو تاسکە دوا کەوتووە</div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </a>
 
-                                                 <div class="d-flex flex-wrap gap-3 task-meta">
-                                                     <span>سپێردراوە بۆ: {{ $task->assignee?->name ?? 'نادیار' }}</span>
-                                                     <span>کاتی دواوە: {{ $task->due_date?->format('Y-m-d') ?? 'دیاری نەکراوە' }}</span>
-                                                     @if ($task->archived_at)
-                                                         <span>ئەرشیف: {{ $task->archived_at->format('Y-m-d H:i') }}</span>
-                                                     @endif
-                                                     @if ($isOverdue)
-                                                         <span class="fw-semibold text-danger">ئەو تاسکە دوا کەوتووە</span>
-                                                     @endif
+                                    <div class="border-top pt-3 mt-3">
+                                        <div class="d-flex flex-column flex-sm-row gap-2">
+                                            <button
+                                                class="btn btn-outline-secondary rounded-3"
+                                                type="button"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#{{ $commentsCollapseId }}"
+                                                aria-expanded="{{ $showCommentsPanel ? 'true' : 'false' }}"
+                                                aria-controls="{{ $commentsCollapseId }}"
+                                            >
+                                                تێبینی و فایلەکان ({{ $task->comments->count() }})
+                                            </button>
+
+                                            @if (! $isArchivedView && $task->is_completed)
+                                                <form method="POST" action="{{ route('tasks.archive', $task) }}">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <input type="hidden" name="view" value="{{ $currentView }}">
+                                                    <input type="hidden" name="completed" value="{{ $completedFilter }}">
+                                                    <input type="hidden" name="tab" value="{{ $currentTab }}">
+                                                    <input type="hidden" name="focus" value="{{ $currentFocus }}">
+                                                    <button type="submit" class="btn btn-outline-secondary rounded-3 w-100">ئەرشیفکردنی تاسک</button>
+                                                </form>
+                                            @endif
+                                        </div>
+
+                                        <div id="{{ $commentsCollapseId }}" class="collapse{{ $showCommentsPanel ? ' show' : '' }} mt-3">
+                                            <div class="border-top pt-3">
+                                                <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                                                    <h4 class="h6 fw-bold mb-0 text-dark">تێبینی و هاوپێچەکان</h4>
+                                                    <span class="small text-secondary">{{ $task->comments->count() }} item</span>
                                                 </div>
-                                            </div>
 
-                                             <div class="rounded-4 border bg-white p-3" style="min-width: 240px;">
-                                                 <div class="small text-uppercase fw-semibold text-secondary">Momentum</div>
-                                                 <div class="mt-2 fw-medium text-dark">
-                                                     {{ $task->status === 'completed' ? 'کارەکە تەواوبووە' : ($task->status === 'pending_review' ? 'لە چاوەڕوانی پشکنینە' : 'کارەکە بەردەوامە') }}
-                                                 </div>
-                                                 @if (! $isArchivedView && $task->is_completed)
-                                                     <form method="POST" action="{{ route('tasks.archive', $task) }}" class="mt-3">
-                                                         @csrf
-                                                         @method('PATCH')
-                                                         <input type="hidden" name="view" value="{{ $currentView }}">
-                                                         <input type="hidden" name="completed" value="{{ $completedFilter }}">
-                                                         <button type="submit" class="btn btn-outline-secondary w-100">ئەرشیفکردنی تاسک</button>
-                                                     </form>
-                                                 @endif
-                                             </div>
-                                         </div>
-
-                                        <div class="comment-box rounded-5 bg-white p-4">
-                                            <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
-                                                <h4 class="h6 fw-bold mb-0 text-dark">تێبینی و هاوپێچەکان</h4>
-                                                <span class="small text-secondary">{{ $task->comments->count() }} item</span>
-                                            </div>
-
-                                            <div class="d-grid gap-3">
                                                 @forelse ($task->comments as $comment)
                                                     @php($commentInitial = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr(trim($comment->user?->name ?? '?'), 0, 1)))
-                                                    <div class="comment-item rounded-4 p-3">
-                                                        <div class="d-flex align-items-start gap-3">
-                                                            <div class="avatar-pill bg-secondary-subtle text-secondary-emphasis flex-shrink-0">
-                                                                {{ $commentInitial !== '' ? $commentInitial : '?' }}
+                                                    <div class="d-flex align-items-start gap-3 py-3 border-top">
+                                                        <span class="badge rounded-pill text-bg-light text-dark px-3 py-2 flex-shrink-0">
+                                                            {{ $commentInitial !== '' ? $commentInitial : '?' }}
+                                                        </span>
+                                                        <div class="flex-grow-1 min-w-0">
+                                                            <div class="d-flex flex-wrap align-items-center gap-2 small text-secondary">
+                                                                <span class="fw-semibold text-dark">{{ $comment->user?->name ?? 'نادیار' }}</span>
+                                                                <span>{{ $comment->created_at?->diffForHumans() }}</span>
                                                             </div>
-                                                            <div class="flex-grow-1 min-w-0">
-                                                                <div class="d-flex flex-wrap align-items-center gap-2 small text-secondary">
-                                                                    <span class="fw-semibold text-dark">{{ $comment->user?->name ?? 'نادیار' }}</span>
-                                                                    <span>{{ $comment->created_at?->diffForHumans() }}</span>
-                                                                </div>
-                                                                @if ($comment->comment)
-                                                                    <p class="mt-2 mb-0 text-secondary">{{ $comment->comment }}</p>
-                                                                @endif
-                                                                @if ($comment->attachment_path)
-                                                                    <a
-                                                                        href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($comment->attachment_path) }}"
-                                                                        target="_blank"
-                                                                        class="btn btn-sm btn-outline-primary mt-3"
-                                                                    >
-                                                                        {{ $comment->attachment_name ?: 'Attachment' }}
-                                                                    </a>
-                                                                @endif
-                                                            </div>
+                                                            @if ($comment->comment)
+                                                                <p class="mt-2 mb-0 text-secondary">{{ $comment->comment }}</p>
+                                                            @endif
+                                                            @if ($comment->attachment_path)
+                                                                <a
+                                                                    href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($comment->attachment_path) }}"
+                                                                    target="_blank"
+                                                                    class="btn btn-sm btn-outline-primary rounded-3 mt-3"
+                                                                >
+                                                                    {{ $comment->attachment_name ?: 'Attachment' }}
+                                                                </a>
+                                                            @endif
                                                         </div>
                                                     </div>
                                                 @empty
-                                                    <div class="alert alert-light border mb-0">
-                                                        هێشتا هیچ تێبینی یان فایلێک بۆ ئەم تاسکە زیاد نەکراوە.
-                                                    </div>
+                                                    <p class="small text-secondary mb-0">هێشتا هیچ تێبینی یان فایلێک بۆ ئەم تاسکە زیاد نەکراوە.</p>
                                                 @endforelse
-                                            </div>
 
-                                            <form
-                                                class="mt-4 rounded-4 border bg-body-tertiary p-3"
-                                                method="POST"
-                                                action="{{ route('tasks.comments.store', $task) }}"
-                                                enctype="multipart/form-data"
-                                            >
-                                                @csrf
-                                                <input type="hidden" name="comment_task_id" value="{{ $task->id }}">
-                                                <input type="hidden" name="view" value="{{ $currentView }}">
-                                                <input type="hidden" name="completed" value="{{ $completedFilter }}">
-                                                <div class="mb-3">
-                                                    <textarea
-                                                        name="comment"
-                                                        rows="3"
-                                                        class="form-control @if ($failedCommentTaskId === (string) $task->id && ($errors->has('comment') || $errors->has('attachment'))) is-invalid @endif"
-                                                        placeholder="context ی نوێ یان feedback زیاد بکە..."
-                                                    >{{ $failedCommentTaskId === (string) $task->id ? old('comment') : '' }}</textarea>
-                                                    @if ($failedCommentTaskId === (string) $task->id && ($errors->has('comment') || $errors->has('attachment')))
-                                                        <div class="invalid-feedback d-block">
-                                                            {{ $errors->first('comment') ?: $errors->first('attachment') }}
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                                <div class="d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-center">
-                                                    <div class="w-100">
-                                                        <input name="attachment" type="file" class="form-control">
-                                                        <div class="file-input-note mt-2">PDF, images, Office files, or text up to 10MB.</div>
+                                                <form
+                                                    class="row g-3 mt-1"
+                                                    method="POST"
+                                                    action="{{ route('tasks.comments.store', $task) }}"
+                                                    enctype="multipart/form-data"
+                                                >
+                                                    @csrf
+                                                    <input type="hidden" name="comment_task_id" value="{{ $task->id }}">
+                                                    <input type="hidden" name="view" value="{{ $currentView }}">
+                                                    <input type="hidden" name="completed" value="{{ $completedFilter }}">
+                                                    <input type="hidden" name="tab" value="{{ $currentTab }}">
+                                                    <input type="hidden" name="focus" value="{{ $currentFocus }}">
+                                                    <div class="col-12">
+                                                        <textarea
+                                                            name="comment"
+                                                            rows="3"
+                                                            class="form-control bg-light border-0 rounded-3 @if ($failedCommentTaskId === (string) $task->id && ($errors->has('comment') || $errors->has('attachment'))) is-invalid @endif"
+                                                            placeholder="context ی نوێ یان feedback زیاد بکە..."
+                                                        >{{ $failedCommentTaskId === (string) $task->id ? old('comment') : '' }}</textarea>
+                                                        @if ($failedCommentTaskId === (string) $task->id && ($errors->has('comment') || $errors->has('attachment')))
+                                                            <div class="invalid-feedback d-block">
+                                                                {{ $errors->first('comment') ?: $errors->first('attachment') }}
+                                                            </div>
+                                                        @endif
                                                     </div>
-                                                    <button type="submit" class="btn btn-success flex-shrink-0 px-4">زیادکردنی تێبینی</button>
-                                                </div>
-                                            </form>
+                                                    <div class="col-12 col-lg">
+                                                        <input name="attachment" type="file" class="form-control bg-light border-0 rounded-3">
+                                                        <div class="small text-secondary mt-2">PDF, images, Office files, or text up to 10MB.</div>
+                                                    </div>
+                                                    <div class="col-12 col-lg-auto">
+                                                        <button type="submit" class="btn btn-primary rounded-3 px-4 w-100">Add Comment</button>
+                                                    </div>
+                                                </form>
+                                            </div>
                                         </div>
                                     </div>
-                                </article>
-                            @empty
-                                <div class="alert alert-light border rounded-4 mb-0">
-                                    {{ $isArchivedView ? 'هیچ تاسکێکی ئەرشیڤکراوی سپاردوو نییە.' : 'تۆ هێشتا هیچ تاسکێکت بە کەسی تر نەداوە.' }}
                                 </div>
-                            @endforelse
-                        </div>
+                            </article>
+                        @empty
+                            <div class="alert alert-light border-0 rounded-4 shadow-sm mb-0">
+                                {{ $isArchivedView ? 'هیچ تاسکێکی ئەرشیڤکراوی سپاردوو نییە.' : 'تۆ هێشتا هیچ تاسکێکت بە کەسی تر نەداوە.' }}
+                            </div>
+                        @endforelse
                     </div>
-                </div>
+                @endif
             </div>
         </div>
     </div>
@@ -693,7 +753,12 @@
             const renderPreview = () => {
                 const selected = options.find((option) => option.dataset.userId === hiddenInput.value);
 
-                options.forEach((option) => option.classList.toggle('is-selected', option === selected));
+                options.forEach((option) => {
+                    const isSelected = option === selected;
+                    option.classList.toggle('bg-primary-subtle', isSelected);
+                    option.classList.toggle('text-primary-emphasis', isSelected);
+                    option.classList.toggle('shadow', isSelected);
+                });
 
                 if (!selected) {
                     preview.textContent = 'وەرگر هەڵبژێرە';
@@ -701,7 +766,7 @@
                 }
 
                 preview.innerHTML = `
-                    <div class="d-flex align-items-center justify-content-between gap-3">
+                    <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
                         <div>
                             <div class="fw-semibold text-dark">${selected.dataset.userName}</div>
                             <div class="small text-secondary mt-1">${selected.dataset.userUsername}</div>
