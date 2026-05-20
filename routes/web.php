@@ -26,7 +26,10 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
     Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
+    Route::patch('/tasks/{task}/status', [TaskController::class, 'updateStatus'])->name('tasks.status.update');
+    Route::post('/tasks/{task}/comments', [TaskController::class, 'storeComment'])->name('tasks.comments.store');
     Route::patch('/tasks/{task}/toggle', [TaskController::class, 'toggle'])->name('tasks.toggle');
+    Route::patch('/tasks/{task}/archive', [TaskController::class, 'archive'])->name('tasks.archive');
 
     Route::middleware('manager')->group(function (): void {
         Route::get('/admin', [AdminDashboardController::class, 'index'])->name('admin.dashboard');

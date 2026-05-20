@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreTaskRequest extends FormRequest
 {
@@ -17,21 +18,11 @@ class StoreTaskRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'acting_as' => ['required', 'integer', 'exists:users,id'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'priority' => ['required', Rule::in(['urgent', 'high', 'low'])],
+            'due_date' => ['nullable', 'date'],
             'assigned_to' => ['required', 'integer', 'exists:users,id'],
-        ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    public function messages(): array
-    {
-        return [
-            'acting_as.required' => 'Choose an acting user first.',
-            'assigned_to.required' => 'Choose a user to assign the task to.',
         ];
     }
 }
