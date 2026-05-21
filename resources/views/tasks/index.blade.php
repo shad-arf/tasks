@@ -24,7 +24,7 @@
     @php($isArchivedView = $currentView === 'archived')
     @php($showCompleted = $completedFilter === 'show')
     @php($focusRouteParameters = $currentFocus !== 'all' ? ['focus' => $currentFocus] : [])
-    @php($showTaskForm = old('title') !== null || $errors->has('title') || $errors->has('description') || $errors->has('priority') || $errors->has('due_date') || $errors->has('assigned_to'))
+    @php($showTaskForm = old('title') !== null || $errors->has('title') || $errors->has('description') || $errors->has('priority') || $errors->has('due_date') || $errors->has('assigned_to') || $errors->has('whatsapp_message'))
     @php($viewContextRouteParameters = $isArchivedView ? ['view' => 'archived'] : array_merge($showCompleted ? ['completed' => 'show'] : [], $focusRouteParameters))
     @php($tabRouteParameters = $currentTab === 'delegated' ? ['tab' => 'delegated'] : [])
     @php($activeViewRouteParameters = array_merge($showCompleted ? ['completed' => 'show'] : [], $tabRouteParameters, $focusRouteParameters))
@@ -48,7 +48,7 @@
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center justify-content-between mb-3">
                                 <span class="badge rounded-pill text-bg-light border text-dark">MT</span>
-                                <span class="small text-secondary">My Tasks</span>
+                                <span class="small text-secondary">تاسکەکانم</span>
                             </div>
                             <div class="small text-uppercase text-secondary fw-semibold">Active For Me</div>
                             <div class="fs-2 fw-bold text-dark mt-2">{{ $activeAssignedToMeCount }}</div>
@@ -123,6 +123,12 @@
         @if (session('error'))
             <div class="alert alert-danger border-0 shadow-sm rounded-4 mb-4" role="alert">
                 {{ session('error') }}
+            </div>
+        @endif
+
+        @if (session('warning'))
+            <div class="alert alert-warning border-0 shadow-sm rounded-4 mb-4" role="alert">
+                {{ session('warning') }}
             </div>
         @endif
 
@@ -309,11 +315,12 @@
                                                                 @php($userInitial = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr(trim($assignableUser->name), 0, 1)))
                                                                 <button
                                                                     type="button"
-                                                                    class="assignee-option btn btn-light border-0 shadow-sm text-start d-flex align-items-center justify-content-between gap-3 rounded-4 p-3"
-                                                                    data-user-id="{{ $assignableUser->id }}"
-                                                                    data-user-name="{{ $assignableUser->name }}"
-                                                                    data-user-username="{{ $assignableUser->username }}"
-                                                                    data-user-email="{{ $assignableUser->email }}"
+                                                                 class="assignee-option btn btn-light border-0 shadow-sm text-start d-flex align-items-center justify-content-between gap-3 rounded-4 p-3"
+                                                                     data-user-id="{{ $assignableUser->id }}"
+                                                                     data-user-name="{{ $assignableUser->name }}"
+                                                                     data-user-username="{{ $assignableUser->username }}"
+                                                                     data-user-email="{{ $assignableUser->email }}"
+                                                                     data-user-phone="{{ $assignableUser->phone }}"
                                                                 >
                                                                     <span class="d-flex align-items-center gap-3 min-w-0">
                                                                         <span class="badge rounded-pill text-bg-light border text-dark px-3 py-2">
@@ -324,7 +331,7 @@
                                                                             <span class="d-block small text-secondary text-truncate">{{ $assignableUser->username }}</span>
                                                                         </span>
                                                                     </span>
-                                                                    <span class="small text-secondary text-truncate">{{ $assignableUser->email ?: '---' }}</span>
+                                                                    <span class="small text-secondary text-truncate">{{ $assignableUser->phone ?: ($assignableUser->email ?: '---') }}</span>
                                                                 </button>
                                                             @empty
                                                                 <div class="alert alert-secondary border-0 rounded-4 mb-0">
@@ -337,6 +344,34 @@
 
                                                 @error('assigned_to')
                                                     <div class="text-danger small mt-2">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+
+                                            <div class="col-12">
+                                                <div class="form-check form-switch mb-3">
+                                                    <input type="hidden" name="send_whatsapp" value="0">
+                                                    <input
+                                                        id="send_whatsapp"
+                                                        name="send_whatsapp"
+                                                        type="checkbox"
+                                                        value="1"
+                                                        class="form-check-input @error('send_whatsapp') is-invalid @enderror"
+                                                        @checked((string) old('send_whatsapp', '1') === '1')
+                                                    >
+                                                    <label for="send_whatsapp" class="form-check-label fw-semibold">Send WhatsApp message</label>
+                                                </div>
+
+                                                <label for="whatsapp_message" class="form-label fw-semibold">WhatsApp Message</label>
+                                                <textarea
+                                                    id="whatsapp_message"
+                                                    name="whatsapp_message"
+                                                    rows="4"
+                                                    class="form-control bg-white border-0 rounded-4 @error('whatsapp_message') is-invalid @enderror"
+                                                    placeholder="If left empty, a default task message will be generated."
+                                                >{{ old('whatsapp_message') }}</textarea>
+                                                <div class="form-text">بۆ ناردن، ژمارەی مۆبایلی وەرگر لە user profile ـەکەی تۆماربکە.</div>
+                                                @error('whatsapp_message')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
                                                 @enderror
                                             </div>
 
@@ -370,7 +405,7 @@
                             href="{{ route('tasks.index', $mineTabRouteParameters) }}"
                             class="nav-link px-0 {{ $currentTab === 'mine' ? 'active text-dark fw-bold' : 'text-secondary' }}"
                         >
-                            My Tasks
+                            تاسکەکانم
                         </a>
                         <a
                             href="{{ route('tasks.index', $delegatedTabRouteParameters) }}"
@@ -574,6 +609,36 @@
                             </div>
                         @endforelse
                     </div>
+
+                    @if ($assignedByMe->isNotEmpty())
+                        <div class="border-top mt-5 pt-4">
+                            <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                                <h3 class="h6 fw-bold text-dark mb-0">تاسکەکانم بۆ کەسانی تر</h3>
+                                <a href="{{ route('tasks.index', ['tab' => 'delegated']) }}#task-lists" class="btn btn-outline-secondary btn-sm rounded-3">بینینی هەموو</a>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                @foreach ($assignedByMe->take(3) as $task)
+                                    <a
+                                        href="{{ route('tasks.show', array_merge(['task' => $task->id], ['tab' => 'delegated'], $taskDetailRouteParameters)) }}"
+                                        class="text-decoration-none"
+                                    >
+                                        <div class="card border-0 bg-light rounded-4 shadow-sm">
+                                            <div class="card-body py-3 px-4 d-flex align-items-center justify-content-between gap-3">
+                                                <div class="min-w-0">
+                                                    <div class="fw-semibold text-dark text-truncate">{{ $task->title }}</div>
+                                                    <div class="small text-secondary text-truncate">{{ $task->assignee?->name ?? 'نادیار' }}</div>
+                                                </div>
+                                                <span class="badge rounded-pill {{ $statusClasses[$task->status] ?? 'text-bg-secondary' }}">
+                                                    {{ $statusLabels[$task->status] ?? $task->status }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 @else
                     <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
                         <h3 class="h5 fw-bold text-dark mb-0">{{ $isArchivedView ? 'ئەرشیفی ئەو تاسکانەی من دامنە' : 'ئەو تاسکانەی من دامنە' }}</h3>
@@ -771,7 +836,10 @@
                             <div class="fw-semibold text-dark">${selected.dataset.userName}</div>
                             <div class="small text-secondary mt-1">${selected.dataset.userUsername}</div>
                         </div>
-                        <div class="small text-secondary">${selected.dataset.userEmail || '---'}</div>
+                        <div class="small text-secondary text-sm-end">
+                            <div>${selected.dataset.userPhone || 'No phone'}</div>
+                            <div>${selected.dataset.userEmail || '---'}</div>
+                        </div>
                     </div>
                 `;
             };
@@ -780,7 +848,7 @@
                 const query = searchInput.value.trim().toLowerCase();
 
                 options.forEach((option) => {
-                    const haystack = `${option.dataset.userName} ${option.dataset.userUsername} ${option.dataset.userEmail}`.toLowerCase();
+                    const haystack = `${option.dataset.userName} ${option.dataset.userUsername} ${option.dataset.userEmail} ${option.dataset.userPhone}`.toLowerCase();
                     option.classList.toggle('d-none', query !== '' && !haystack.includes(query));
                 });
             };

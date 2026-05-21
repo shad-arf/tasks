@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    'whatsapp' => [
+        'base_url' => env('WHATSAPP_BASE_URL', 'https://wa.bazrgan.com'),
+        'send_endpoint' => env('WHATSAPP_SEND_ENDPOINT', '/api/send'),
+        'token_url' => env('WHATSAPP_TOKEN_URL', '/api/auth/token'),
+        'token' => env('WHATSAPP_TOKEN', env('WHATSAPP_API_TOKEN')),
+        'client_id' => env('WHATSAPP_CLIENT_ID', env('CLIENT_ID')),
+        'client_secret' => env('WHATSAPP_CLIENT_SECRET', env('CLIENT_SECRET')),
+        'account' => env('WHATSAPP_ACCOUNT', 'books'),
+    ],
+
 ];

@@ -8,10 +8,13 @@ use App\Http\Requests\UpdateTaskStatusRequest;
 use App\Models\Task;
 use App\Models\TaskComment;
 use App\Models\User;
+use App\Services\WhatsAppService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 class TaskController extends Controller
 {
@@ -29,9 +32,9 @@ class TaskController extends Controller
 
         $baseQuery = fn () => Task::query()
             ->with([
-                'assigner:id,name,email,username',
-                'assignee:id,name,email,username',
-                'comments.user:id,name,email,username',
+                'assigner:id,name,email,username,phone',
+                'assignee:id,name,email,username,phone',
+                'comments.user:id,name,email,username,phone',
             ])
             ->orderByRaw('case when due_date is null then 1 else 0 end')
             ->orderBy('due_date')
@@ -50,7 +53,7 @@ class TaskController extends Controller
         $assignedByMe = $assignedByMeQuery->get();
 
         $users = User::query()
-            ->select('id', 'name', 'email', 'username')
+            ->select('id', 'name', 'email', 'username', 'phone')
             ->where('role', 'user')
             ->whereKeyNot($user->id)
             ->orderBy('name')
@@ -103,7 +106,7 @@ class TaskController extends Controller
         ]);
     }
 
-    public function store(StoreTaskRequest $request): RedirectResponse
+    public function store(StoreTaskRequest $request, WhatsAppService $whatsApp): RedirectResponse
     {
         $user = $request->user();
 
@@ -124,7 +127,11 @@ class TaskController extends Controller
             ]
         )->validate();
 
-        Task::create([
+        $assignee = User::query()
+            ->select('id', 'name', 'phone')
+            ->findOrFail((int) $data['assigned_to']);
+
+        $task = Task::create([
             'title' => $data['title'],
             'description' => $data['description'] ?? null,
             'priority' => $data['priority'],
@@ -135,7 +142,16 @@ class TaskController extends Controller
             'assigned_to' => (int) $data['assigned_to'],
         ]);
 
-        return to_route('tasks.index', $this->taskIndexParameters($request, ['view' => 'active']))->with('success', 'تاسک بەسەرکەوتوویی زیادکرا.');
+        $warningMessage = $this->sendTaskAssignmentWhatsAppMessage($request, $whatsApp, $task, $assignee, $user);
+
+        $response = to_route('tasks.index', $this->taskIndexParameters($request, ['view' => 'active']))
+            ->with('success', 'تاسک بەسەرکەوتوویی زیادکرا.');
+
+        if ($warningMessage !== null) {
+            $response->with('warning', $warningMessage);
+        }
+
+        return $response;
     }
 
     public function show(Request $request, Task $task): View
@@ -151,9 +167,9 @@ class TaskController extends Controller
         );
 
         $task->load([
-            'assigner:id,name,email,username',
-            'assignee:id,name,email,username',
-            'comments.user:id,name,email,username',
+            'assigner:id,name,email,username,phone',
+            'assignee:id,name,email,username,phone',
+            'comments.user:id,name,email,username,phone',
         ]);
 
         return view('tasks.show', [
@@ -360,5 +376,84 @@ class TaskController extends Controller
         }
 
         return $parameters;
+    }
+
+    private function sendTaskAssignmentWhatsAppMessage(
+        StoreTaskRequest $request,
+        WhatsAppService $whatsApp,
+        Task $task,
+        User $assignee,
+        User $assigner
+    ): ?string {
+        if (! $request->boolean('send_whatsapp')) {
+            return null;
+        }
+
+        if (blank($assignee->phone)) {
+            return 'تاسکەکە زیادکرا، بەڵام WhatsApp نەنێردرا چونکە ژمارەی مۆبایلی ئەو بەکارهێنەرە تۆمارنەکراوە. تکایە لە user profile ژمارەکە بە country code وەک 9647501234567 زیاد بکە، پاشان دووبارە هەوڵبدەرەوە.';
+        }
+
+        $message = trim((string) $request->validated('whatsapp_message'));
+
+        if ($message === '') {
+            $message = $this->buildDefaultWhatsAppMessage($task, $assigner);
+        }
+
+        try {
+            $whatsApp->sendTextMessage(
+                $assignee->phone,
+                $message,
+                'task-'.$task->id.'-assignment'
+            );
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return $this->buildWhatsAppFailureMessage($exception);
+        }
+
+        return null;
+    }
+
+    private function buildWhatsAppFailureMessage(Throwable $exception): string
+    {
+        $details = trim($exception->getMessage());
+
+        if ($exception instanceof RequestException && $exception->response !== null) {
+            $apiDetail = $exception->response->json('message')
+                ?? $exception->response->json('error')
+                ?? $exception->response->body();
+
+            if (is_string($apiDetail) && trim($apiDetail) !== '') {
+                $details = trim($apiDetail);
+            }
+        }
+
+        $message = 'تاسکەکە زیادکرا، بەڵام ناردنی نامەی WhatsApp سەرکەوتوو نەبوو. تکایە دڵنیابە لەوەی WHATSAPP_ACCOUNT ڕاستە، ژمارەی وەرگر بە country code تۆمارکراوە، و CLIENT_ID / CLIENT_SECRET دروستن.';
+
+        if ($details === '') {
+            return $message;
+        }
+
+        return $message.' هۆکاری هەڵە: '.$details;
+    }
+
+    private function buildDefaultWhatsAppMessage(Task $task, User $assigner): string
+    {
+        $lines = [
+            'New task assigned to you.',
+            'Title: '.$task->title,
+            'Priority: '.strtoupper($task->priority),
+            'Assigned by: '.$assigner->name,
+        ];
+
+        if ($task->due_date !== null) {
+            $lines[] = 'Due date: '.$task->due_date->format('Y-m-d');
+        }
+
+        if ($task->description !== null && trim($task->description) !== '') {
+            $lines[] = 'Details: '.$task->description;
+        }
+
+        return implode("\n", $lines);
     }
 }

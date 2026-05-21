@@ -194,6 +194,7 @@
                                 <th class="px-4 py-3">بەکارهێنەر</th>
                                 <th class="px-4 py-3">Username</th>
                                 <th class="px-4 py-3">ئیمەیڵ</th>
+                                <th class="px-4 py-3">مۆبایل</th>
                                 <th class="px-4 py-3">ڕۆڵ</th>
                                 <th class="px-4 py-3">دروستکراو</th>
                                 <th class="px-4 py-3 text-center">کردارەکان</th>
@@ -211,6 +212,9 @@
                                     </td>
                                     <td class="px-4 py-3 text-secondary">
                                         {{ $managedUser->email ?: '---' }}
+                                    </td>
+                                    <td class="px-4 py-3 text-secondary">
+                                        {{ $managedUser->phone ?: '---' }}
                                     </td>
                                     <td class="px-4 py-3">
                                         <span class="badge rounded-pill {{ $managedUser->role === 'manager' ? 'text-bg-primary' : 'text-bg-secondary' }}">
@@ -247,7 +251,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-4 py-5 text-center text-secondary">
+                                    <td colspan="7" class="px-4 py-5 text-center text-secondary">
                                         هیچ بەکارهێنەرێک نەدۆزرایەوە.
                                     </td>
                                 </tr>
@@ -318,6 +322,22 @@
                             </div>
 
                             <div class="col-md-6">
+                                <label for="create-phone" class="form-label">ژمارەی مۆبایل</label>
+                                <input
+                                    id="create-phone"
+                                    name="phone"
+                                    type="text"
+                                    value="{{ old('phone') }}"
+                                    class="form-control form-control-lg @if ($createErrors->has('phone')) is-invalid @endif"
+                                    placeholder="9647501234567"
+                                >
+                                <div class="form-text">بە country code ـەوە تۆماری بکە.</div>
+                                @if ($createErrors->has('phone'))
+                                    <div class="invalid-feedback">{{ $createErrors->first('phone') }}</div>
+                                @endif
+                            </div>
+
+                            <div class="col-md-6">
                                 <label for="create-role" class="form-label">ڕۆڵ</label>
                                 <select
                                     id="create-role"
@@ -362,6 +382,7 @@
         @php($rowName = $isFailedRow ? old('name', $managedUser->name) : $managedUser->name)
         @php($rowUsername = $isFailedRow ? old('username', $managedUser->username) : $managedUser->username)
         @php($rowEmail = $isFailedRow ? old('email', $managedUser->email) : $managedUser->email)
+        @php($rowPhone = $isFailedRow ? old('phone', $managedUser->phone) : $managedUser->phone)
         @php($rowRole = $isFailedRow ? old('role', $managedUser->role) : $managedUser->role)
 
         <div class="modal fade manager-modal" id="editUserModal-{{ $managedUser->id }}" tabindex="-1" aria-labelledby="editUserModalLabel-{{ $managedUser->id }}" aria-hidden="true">
@@ -423,6 +444,22 @@
                                     >
                                     @if ($isFailedRow && $updateErrors->has('email'))
                                         <div class="invalid-feedback">{{ $updateErrors->first('email') }}</div>
+                                    @endif
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label for="edit-phone-{{ $managedUser->id }}" class="form-label">ژمارەی مۆبایل</label>
+                                    <input
+                                        id="edit-phone-{{ $managedUser->id }}"
+                                        name="phone"
+                                        type="text"
+                                        value="{{ $rowPhone }}"
+                                        class="form-control form-control-lg @if ($isFailedRow && $updateErrors->has('phone')) is-invalid @endif"
+                                        placeholder="9647501234567"
+                                    >
+                                    <div class="form-text">بە country code ـەوە تۆماری بکە.</div>
+                                    @if ($isFailedRow && $updateErrors->has('phone'))
+                                        <div class="invalid-feedback">{{ $updateErrors->first('phone') }}</div>
                                     @endif
                                 </div>
 

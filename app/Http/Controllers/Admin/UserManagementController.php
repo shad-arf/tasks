@@ -19,6 +19,7 @@ class UserManagementController extends Controller
             'name' => $data['name'],
             'username' => $data['username'],
             'email' => $data['email'] ?: null,
+            'phone' => $data['phone'] ?? null,
             'role' => $data['role'],
             'password' => Hash::make($data['password']),
         ]);
@@ -40,6 +41,7 @@ class UserManagementController extends Controller
             'name' => $data['name'],
             'username' => $data['username'],
             'email' => $data['email'] ?: null,
+            'phone' => $data['phone'] ?? null,
             'role' => $data['role'],
         ];
 

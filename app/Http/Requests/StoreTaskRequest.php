@@ -23,6 +23,8 @@ class StoreTaskRequest extends FormRequest
             'priority' => ['required', Rule::in(['urgent', 'high', 'low'])],
             'due_date' => ['nullable', 'date'],
             'assigned_to' => ['required', 'integer', 'exists:users,id'],
+            'send_whatsapp' => ['nullable', 'boolean'],
+            'whatsapp_message' => ['nullable', 'string', 'max:2000'],
         ];
     }
 }

@@ -4,6 +4,8 @@ use App\Models\Task;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 
@@ -85,6 +87,7 @@ it('allows managers to create users without email and with short passwords', fun
             'name' => 'Short Password User',
             'username' => 'short-pass-user',
             'email' => '',
+            'phone' => '+964 750 123 4567',
             'role' => 'user',
             'password' => '123',
         ])
@@ -93,6 +96,7 @@ it('allows managers to create users without email and with short passwords', fun
     $createdUser = User::where('username', 'short-pass-user')->firstOrFail();
 
     expect($createdUser->email)->toBeNull();
+    expect($createdUser->phone)->toBe('9647501234567');
     expect(Hash::check('123', $createdUser->password))->toBeTrue();
 });
 
@@ -108,6 +112,7 @@ it('allows managers to update users without email and with short passwords', fun
             'name' => $managedUser->name,
             'username' => $managedUser->username,
             'email' => '',
+            'phone' => '+964-771-111-2222',
             'role' => $managedUser->role,
             'password' => '123',
         ])
@@ -116,6 +121,7 @@ it('allows managers to update users without email and with short passwords', fun
     $managedUser->refresh();
 
     expect($managedUser->email)->toBeNull();
+    expect($managedUser->phone)->toBe('9647711112222');
     expect(Hash::check('123', $managedUser->password))->toBeTrue();
 });
 
@@ -144,6 +150,131 @@ it('creates a task from the dashboard flow', function () {
 
     expect(Task::where('title', 'Prepare weekly report')->firstOrFail()->due_date?->format('Y-m-d'))
         ->toBe('2026-06-01');
+});
+
+it('sends a whatsapp message when requested during task creation', function () {
+    Cache::flush();
+
+    Http::fake([
+        'https://wa.bazrgan.com/api/auth/token' => Http::response([
+            'token' => 'fake-access-token',
+            'expires_in' => 86400,
+        ]),
+        'https://wa.bazrgan.com/api/send' => Http::response([
+            'success' => true,
+            'message' => 'sent',
+            'log_id' => '550e8400-e29b-41d4-a716-446655440000',
+        ]),
+    ]);
+
+    config()->set('services.whatsapp', [
+        'base_url' => 'https://wa.bazrgan.com',
+        'send_endpoint' => '/api/send',
+        'token_url' => 'https://wa.bazrgan.com/api/auth/token',
+        'token' => null,
+        'client_id' => 'client-id',
+        'client_secret' => 'client-secret',
+        'account' => 'main',
+    ]);
+
+    $assigner = User::factory()->create([
+        'name' => 'Manager',
+    ]);
+    $assignee = User::factory()->create([
+        'name' => 'Assignee',
+        'phone' => '9647501234567',
+    ]);
+
+    $this->actingAs($assigner)
+        ->post(route('tasks.store'), [
+            'title' => 'Send WhatsApp notice',
+            'description' => 'Include a direct message.',
+            'priority' => 'high',
+            'due_date' => '2026-06-08',
+            'assigned_to' => $assignee->id,
+            'send_whatsapp' => '1',
+            'whatsapp_message' => 'Hello from the task board!',
+        ])
+        ->assertRedirect(route('tasks.index'));
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://wa.bazrgan.com/api/auth/token'
+        && $request['client_id'] === 'client-id'
+        && $request['client_secret'] === 'client-secret');
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://wa.bazrgan.com/api/send'
+        && $request->hasHeader('Authorization', 'Bearer fake-access-token')
+        && $request['phone'] === '9647501234567'
+        && $request['message'] === 'Hello from the task board!'
+        && $request['message_type'] === 'text'
+        && $request['account'] === 'main');
+});
+
+it('creates the task and shows a warning when whatsapp is requested without an assignee phone number', function () {
+    Http::fake();
+
+    $assigner = User::factory()->create();
+    $assignee = User::factory()->create([
+        'phone' => null,
+    ]);
+
+    $this->actingAs($assigner)
+        ->post(route('tasks.store'), [
+            'title' => 'Missing phone test',
+            'description' => 'The task should still be created.',
+            'priority' => 'low',
+            'assigned_to' => $assignee->id,
+            'send_whatsapp' => '1',
+        ])
+        ->assertRedirect(route('tasks.index'))
+        ->assertSessionHas('warning');
+
+    $this->assertDatabaseHas('tasks', [
+        'title' => 'Missing phone test',
+        'assigned_to' => $assignee->id,
+    ]);
+
+    Http::assertNothingSent();
+});
+
+it('shows a longer whatsapp failure warning with the api error details', function () {
+    Cache::flush();
+
+    Http::fake([
+        'https://wa.bazrgan.com/api/auth/token' => Http::response([
+            'token' => 'fake-access-token',
+            'expires_in' => 86400,
+        ]),
+        'https://wa.bazrgan.com/api/send' => Http::response([
+            'message' => 'Account books is not connected.',
+        ], 422),
+    ]);
+
+    config()->set('services.whatsapp', [
+        'base_url' => 'https://wa.bazrgan.com',
+        'send_endpoint' => '/api/send',
+        'token_url' => 'https://wa.bazrgan.com/api/auth/token',
+        'token' => null,
+        'client_id' => 'client-id',
+        'client_secret' => 'client-secret',
+        'account' => 'books',
+    ]);
+
+    $assigner = User::factory()->create();
+    $assignee = User::factory()->create([
+        'phone' => '9647501234567',
+    ]);
+
+    $this->actingAs($assigner)
+        ->post(route('tasks.store'), [
+            'title' => 'WhatsApp failure details',
+            'description' => 'Should show the api error.',
+            'priority' => 'high',
+            'assigned_to' => $assignee->id,
+            'send_whatsapp' => '1',
+        ])
+        ->assertRedirect(route('tasks.index'))
+        ->assertSessionHas('warning', fn (string $warning) => str_contains($warning, 'WHATSAPP_ACCOUNT')
+            && str_contains($warning, 'Account books is not connected.'));
 });
 
 it('allows the assignee to update a task status through the richer workflow', function () {

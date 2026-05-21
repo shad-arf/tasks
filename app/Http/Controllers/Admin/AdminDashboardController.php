@@ -11,7 +11,7 @@ class AdminDashboardController extends Controller
     public function index(): View
     {
         $users = User::query()
-            ->select('id', 'name', 'username', 'email', 'role', 'created_at')
+            ->select('id', 'name', 'username', 'email', 'phone', 'role', 'created_at')
             ->orderBy('name')
             ->get();
 
