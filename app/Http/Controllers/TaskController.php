@@ -24,6 +24,7 @@ class TaskController extends Controller
 
         abort_if($user === null, 401);
         abort_if($user->isManager(), 403, 'Managers do not use the task workspace.');
+        $this->ensureUserHasBusiness($user);
 
         $currentView = $this->resolveTaskView($request);
         $completedFilter = $this->resolveCompletedFilter($request);
@@ -31,6 +32,7 @@ class TaskController extends Controller
         $currentFocus = $this->resolveTaskFocus($request);
 
         $baseQuery = fn () => Task::query()
+            ->where('business_id', $user->business_id)
             ->with([
                 'assigner:id,name,email,username,phone',
                 'assignee:id,name,email,username,phone',
@@ -55,6 +57,7 @@ class TaskController extends Controller
         $users = User::query()
             ->select('id', 'name', 'email', 'username', 'phone')
             ->where('role', 'user')
+            ->where('business_id', $user->business_id)
             ->whereKeyNot($user->id)
             ->orderBy('name')
             ->get();
@@ -69,21 +72,25 @@ class TaskController extends Controller
             'currentTab' => $currentTab,
             'currentFocus' => $currentFocus,
             'activeAssignedToMeCount' => Task::query()
+                ->where('business_id', $user->business_id)
                 ->where('assigned_to', $user->id)
                 ->whereNull('archived_at')
                 ->where('is_completed', false)
                 ->count(),
             'activeAssignedByMeCount' => Task::query()
+                ->where('business_id', $user->business_id)
                 ->where('assigned_by', $user->id)
                 ->whereNull('archived_at')
                 ->where('is_completed', false)
                 ->count(),
             'pendingReviewCount' => Task::query()
+                ->where('business_id', $user->business_id)
                 ->where('assigned_by', $user->id)
                 ->whereNull('archived_at')
                 ->where('status', Task::STATUS_PENDING_REVIEW)
                 ->count(),
             'urgentActiveCount' => Task::query()
+                ->where('business_id', $user->business_id)
                 ->whereNull('archived_at')
                 ->where('is_completed', false)
                 ->where('priority', Task::PRIORITY_URGENT)
@@ -94,6 +101,7 @@ class TaskController extends Controller
                 })
                 ->count(),
             'archivedTaskCount' => Task::query()
+                ->where('business_id', $user->business_id)
                 ->whereNotNull('archived_at')
                 ->where(function ($query) use ($user) {
                     $query
@@ -112,6 +120,7 @@ class TaskController extends Controller
 
         abort_if($user === null, 401);
         abort_if($user->isManager(), 403, 'Managers do not create tasks.');
+        $this->ensureUserHasBusiness($user);
 
         $data = $request->validated();
 
@@ -121,7 +130,9 @@ class TaskController extends Controller
                 'assigned_to' => [
                     'required',
                     'integer',
-                    Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'user')),
+                    Rule::exists('users', 'id')->where(fn ($query) => $query
+                        ->where('role', 'user')
+                        ->where('business_id', $user->business_id)),
                     Rule::notIn([$user->id]),
                 ],
             ]
@@ -129,6 +140,7 @@ class TaskController extends Controller
 
         $assignee = User::query()
             ->select('id', 'name', 'phone')
+            ->where('business_id', $user->business_id)
             ->findOrFail((int) $data['assigned_to']);
 
         $task = Task::create([
@@ -138,6 +150,7 @@ class TaskController extends Controller
             'due_date' => $data['due_date'] ?? null,
             'status' => Task::STATUS_PENDING,
             'is_completed' => false,
+            'business_id' => $user->business_id,
             'assigned_by' => $user->id,
             'assigned_to' => (int) $data['assigned_to'],
         ]);
@@ -160,6 +173,8 @@ class TaskController extends Controller
 
         abort_if($user === null, 401);
         abort_if($user->isManager(), 403, 'Managers do not use the task workspace.');
+        $this->ensureUserHasBusiness($user);
+        $this->ensureTaskBelongsToUserBusiness($task, $user);
         abort_if(
             ! in_array($user->id, [$task->assigned_by, $task->assigned_to], true),
             403,
@@ -209,6 +224,8 @@ class TaskController extends Controller
 
         abort_if($user === null, 401);
         abort_if($user->isManager(), 403, 'Managers do not update task status.');
+        $this->ensureUserHasBusiness($user);
+        $this->ensureTaskBelongsToUserBusiness($task, $user);
         abort_if($user->id !== $task->assigned_to, 403, 'Only the assignee can change the task status.');
 
         $status = $request->validated()['status'];
@@ -228,6 +245,8 @@ class TaskController extends Controller
 
         abort_if($user === null, 401);
         abort_if($user->isManager(), 403, 'Managers do not comment on task cards.');
+        $this->ensureUserHasBusiness($user);
+        $this->ensureTaskBelongsToUserBusiness($task, $user);
         abort_if(
             ! in_array($user->id, [$task->assigned_by, $task->assigned_to], true),
             403,
@@ -260,6 +279,8 @@ class TaskController extends Controller
 
         abort_if($user === null, 401);
         abort_if($user->isManager(), 403, 'Managers do not update task status.');
+        $this->ensureUserHasBusiness($user);
+        $this->ensureTaskBelongsToUserBusiness($task, $user);
         abort_if($user->id !== $task->assigned_to, 403, 'Only the assignee can change the task status.');
 
         $nextStatus = $task->is_completed ? Task::STATUS_PENDING : Task::STATUS_COMPLETED;
@@ -280,6 +301,8 @@ class TaskController extends Controller
 
         abort_if($user === null, 401);
         abort_if($user->isManager(), 403, 'Managers do not archive task cards.');
+        $this->ensureUserHasBusiness($user);
+        $this->ensureTaskBelongsToUserBusiness($task, $user);
         abort_if(
             ! in_array($user->id, [$task->assigned_by, $task->assigned_to], true),
             403,
@@ -403,7 +426,8 @@ class TaskController extends Controller
             $whatsApp->sendTextMessage(
                 $assignee->phone,
                 $message,
-                'task-'.$task->id.'-assignment'
+                'task-'.$task->id.'-assignment',
+                $this->resolveWhatsAppAccountName($assigner)
             );
         } catch (Throwable $exception) {
             report($exception);
@@ -455,5 +479,26 @@ class TaskController extends Controller
         }
 
         return implode("\n", $lines);
+    }
+
+    private function ensureUserHasBusiness(User $user): void
+    {
+        abort_if($user->business_id === null, 422, 'This user is not assigned to a business yet.');
+    }
+
+    private function ensureTaskBelongsToUserBusiness(Task $task, User $user): void
+    {
+        abort_if($task->business_id !== $user->business_id, 403, 'You cannot access tasks outside your business.');
+    }
+
+    private function resolveWhatsAppAccountName(User $user): string
+    {
+        $businessName = trim((string) $user->business()->value('name'));
+
+        if ($businessName !== '') {
+            return $businessName;
+        }
+
+        return trim((string) config('services.whatsapp.account'));
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Business;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -76,6 +77,7 @@ it('renders the admin dashboard for managers', function () {
         ->assertSee('زیادکردنی بەکارهێنەری نوێ')
         ->assertSee('لیستی بەکارهێنەران')
         ->assertSee('All Users')
+        ->assertSee('Default Business')
         ->assertSee($regularUser->username);
 });
 
@@ -88,6 +90,7 @@ it('allows managers to create users without email and with short passwords', fun
             'username' => 'short-pass-user',
             'email' => '',
             'phone' => '+964 750 123 4567',
+            'business_name' => 'Business A',
             'role' => 'user',
             'password' => '123',
         ])
@@ -97,6 +100,8 @@ it('allows managers to create users without email and with short passwords', fun
 
     expect($createdUser->email)->toBeNull();
     expect($createdUser->phone)->toBe('9647501234567');
+    expect($createdUser->business?->name)->toBe('Business A');
+    expect(config('services.whatsapp.account'))->toBe('Business A');
     expect(Hash::check('123', $createdUser->password))->toBeTrue();
 });
 
@@ -113,6 +118,7 @@ it('allows managers to update users without email and with short passwords', fun
             'username' => $managedUser->username,
             'email' => '',
             'phone' => '+964-771-111-2222',
+            'business_name' => 'Business B',
             'role' => $managedUser->role,
             'password' => '123',
         ])
@@ -122,7 +128,33 @@ it('allows managers to update users without email and with short passwords', fun
 
     expect($managedUser->email)->toBeNull();
     expect($managedUser->phone)->toBe('9647711112222');
+    expect($managedUser->business?->name)->toBe('Business B');
+    expect(config('services.whatsapp.account'))->toBe('Business B');
     expect(Hash::check('123', $managedUser->password))->toBeTrue();
+});
+
+it('allows managers to create users with a duplicate phone number', function () {
+    $manager = User::factory()->manager()->create();
+    User::factory()->create([
+        'phone' => '9647501234567',
+    ]);
+
+    $this->actingAs($manager)
+        ->post(route('admin.users.store'), [
+            'name' => 'Duplicate Phone User',
+            'username' => 'duplicate-phone-user',
+            'email' => '',
+            'phone' => '9647501234567',
+            'business_name' => 'Business A',
+            'role' => 'user',
+            'password' => '123',
+        ])
+        ->assertRedirect(route('admin.dashboard'));
+
+    $this->assertDatabaseHas('users', [
+        'username' => 'duplicate-phone-user',
+        'phone' => '9647501234567',
+    ]);
 });
 
 it('creates a task from the dashboard flow', function () {
@@ -152,6 +184,81 @@ it('creates a task from the dashboard flow', function () {
         ->toBe('2026-06-01');
 });
 
+it('shows only same-business tasks and assignees to a regular user', function () {
+    $businessA = Business::create(['name' => 'Business A']);
+    $businessB = Business::create(['name' => 'Business B']);
+
+    $userA = User::factory()->create([
+        'name' => 'User A',
+        'username' => 'user-a',
+        'business_id' => $businessA->id,
+    ]);
+    $colleagueA = User::factory()->create([
+        'name' => 'Colleague A',
+        'username' => 'colleague-a',
+        'business_id' => $businessA->id,
+    ]);
+    $userB = User::factory()->create([
+        'name' => 'User B',
+        'username' => 'user-b',
+        'business_id' => $businessB->id,
+    ]);
+    $colleagueB = User::factory()->create([
+        'name' => 'Colleague B',
+        'username' => 'colleague-b',
+        'business_id' => $businessB->id,
+    ]);
+
+    Task::create([
+        'title' => 'Business A task',
+        'assigned_by' => $colleagueA->id,
+        'assigned_to' => $userA->id,
+        'business_id' => $businessA->id,
+    ]);
+
+    Task::create([
+        'title' => 'Business B task',
+        'assigned_by' => $colleagueB->id,
+        'assigned_to' => $userB->id,
+        'business_id' => $businessB->id,
+    ]);
+
+    $this->actingAs($userA)
+        ->get(route('tasks.index'))
+        ->assertOk()
+        ->assertSee('Business A task')
+        ->assertDontSee('Business B task')
+        ->assertSee('colleague-a')
+        ->assertDontSee('colleague-b');
+});
+
+it('blocks assigning tasks to a user from another business', function () {
+    $businessA = Business::create(['name' => 'Business A']);
+    $businessB = Business::create(['name' => 'Business B']);
+
+    $assigner = User::factory()->create([
+        'business_id' => $businessA->id,
+    ]);
+    $assignee = User::factory()->create([
+        'business_id' => $businessB->id,
+    ]);
+
+    $this->actingAs($assigner)
+        ->from(route('tasks.index'))
+        ->post(route('tasks.store'), [
+            'title' => 'Cross business task',
+            'description' => 'Should not be created.',
+            'priority' => 'high',
+            'assigned_to' => $assignee->id,
+        ])
+        ->assertRedirect(route('tasks.index'))
+        ->assertSessionHasErrors('assigned_to');
+
+    $this->assertDatabaseMissing('tasks', [
+        'title' => 'Cross business task',
+    ]);
+});
+
 it('sends a whatsapp message when requested during task creation', function () {
     Cache::flush();
 
@@ -177,12 +284,16 @@ it('sends a whatsapp message when requested during task creation', function () {
         'account' => 'main',
     ]);
 
+    $business = Business::create(['name' => 'Business A']);
+
     $assigner = User::factory()->create([
         'name' => 'Manager',
+        'business_id' => $business->id,
     ]);
     $assignee = User::factory()->create([
         'name' => 'Assignee',
         'phone' => '9647501234567',
+        'business_id' => $business->id,
     ]);
 
     $this->actingAs($assigner)
@@ -206,7 +317,7 @@ it('sends a whatsapp message when requested during task creation', function () {
         && $request['phone'] === '9647501234567'
         && $request['message'] === 'Hello from the task board!'
         && $request['message_type'] === 'text'
-        && $request['account'] === 'main');
+        && $request['account'] === 'Business A');
 });
 
 it('creates the task and shows a warning when whatsapp is requested without an assignee phone number', function () {
@@ -259,9 +370,14 @@ it('shows a longer whatsapp failure warning with the api error details', functio
         'account' => 'books',
     ]);
 
-    $assigner = User::factory()->create();
+    $business = Business::create(['name' => 'Business Books']);
+
+    $assigner = User::factory()->create([
+        'business_id' => $business->id,
+    ]);
     $assignee = User::factory()->create([
         'phone' => '9647501234567',
+        'business_id' => $business->id,
     ]);
 
     $this->actingAs($assigner)

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Business;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -24,11 +25,16 @@ class UserFactory extends Factory
      */
     public function definition(): array
     {
+        $defaultBusinessId = Business::query()->firstOrCreate([
+            'name' => 'Default Business',
+        ])->id;
+
         return [
             'name' => fake()->name(),
             'username' => fake()->unique()->userName(),
             'email' => fake()->unique()->safeEmail(),
             'phone' => null,
+            'business_id' => $defaultBusinessId,
             'role' => 'user',
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),

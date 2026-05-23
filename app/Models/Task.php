@@ -33,6 +33,7 @@ class Task extends Model
         'status',
         'is_completed',
         'archived_at',
+        'business_id',
         'assigned_by',
         'assigned_to',
     ];
@@ -47,6 +48,20 @@ class Task extends Model
             'due_date' => 'date',
             'archived_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Task $task): void {
+            if ($task->business_id !== null) {
+                return;
+            }
+
+            $task->business_id = User::query()
+                ->whereKey($task->assigned_by)
+                ->value('business_id')
+                ?? User::query()->whereKey($task->assigned_to)->value('business_id');
+        });
     }
 
     /**
@@ -77,6 +92,11 @@ class Task extends Model
     public function assigner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    public function business(): BelongsTo
+    {
+        return $this->belongsTo(Business::class);
     }
 
     public function assignee(): BelongsTo

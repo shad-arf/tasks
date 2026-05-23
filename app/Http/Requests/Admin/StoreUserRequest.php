@@ -30,7 +30,8 @@ class StoreUserRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:255', 'unique:users,username'],
             'email' => ['nullable', 'string', 'max:255', 'unique:users,email'],
-            'phone' => ['nullable', 'digits_between:8,15', 'unique:users,phone'],
+            'phone' => ['nullable', 'digits_between:8,15'],
+            'business_name' => ['required', 'string', 'max:255'],
             'role' => ['required', Rule::in(['manager', 'user'])],
             'password' => ['required', 'string'],
         ];

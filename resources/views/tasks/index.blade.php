@@ -200,7 +200,8 @@
                     <div>
                         <h2 class="h4 fw-bold text-dark mb-2">زیادکردنی تاسکی نوێ</h2>
                         <p class="text-secondary mb-0">
-                            کاتێک پێویستت پێیە، فۆڕمەکە بکەرەوە و تاسکەکە بە شێوەی ڕێکخراو زیاد بکە.
+                            کاتێک پێویستت پێیە، فۆڕمەکە بکەرەوە و تاسکەکە بە شێوەی ڕێکخراو زیاد بکە. تەنها ئەندامانی business ـی
+                            {{ $currentUser->business?->name ?? '---' }} لێرە دیارن.
                         </p>
                     </div>
 
@@ -335,7 +336,7 @@
                                                                 </button>
                                                             @empty
                                                                 <div class="alert alert-secondary border-0 rounded-4 mb-0">
-                                                                    user ی تر بەردەست نییە بۆ سپاردن.
+                                                                    هیچ user ـێکی تر لە هەمان business ـدا بەردەست نییە بۆ سپاردن.
                                                                 </div>
                                                             @endforelse
                                                         </div>

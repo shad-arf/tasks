@@ -11,9 +11,9 @@ class WhatsAppService
     /**
      * @return array<string, mixed>
      */
-    public function sendTextMessage(string $phone, string $message, ?string $orderId = null): array
+    public function sendTextMessage(string $phone, string $message, ?string $orderId = null, ?string $account = null): array
     {
-        $account = trim((string) config('services.whatsapp.account'));
+        $account = trim($account ?? (string) config('services.whatsapp.account'));
 
         if ($account === '') {
             throw new RuntimeException('WhatsApp account is not configured.');

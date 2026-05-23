@@ -83,6 +83,7 @@
     @php($createErrors = $errors->createUser)
     @php($updateErrors = $errors->updateUser)
     @php($failedUserId = (string) old('user_id'))
+    @php($createBusinessName = old('business_name', $businesses->first()?->name))
 
     <div class="manager-shell container-fluid px-3 px-lg-4">
         <div class="manager-hero rounded-5 p-4 p-lg-5 shadow-lg">
@@ -147,10 +148,8 @@
 
             <div class="manager-stat-card card rounded-4 shadow-sm flex-shrink-0">
                 <div class="card-body">
-                    <div class="text-uppercase text-secondary fw-semibold small">Workflow</div>
-                    <div class="mt-2 small text-body-secondary">
-                        زیادکردن و نوێکردنەوە بە modal کراوە بۆ پاکتر بوونی UI.
-                    </div>
+                    <div class="text-uppercase text-secondary fw-semibold small">Businesses</div>
+                    <div class="display-6 fw-bold mt-2 mb-0 text-dark">{{ $stats['total_businesses'] }}</div>
                 </div>
             </div>
         </div>
@@ -195,6 +194,7 @@
                                 <th class="px-4 py-3">Username</th>
                                 <th class="px-4 py-3">ئیمەیڵ</th>
                                 <th class="px-4 py-3">مۆبایل</th>
+                                <th class="px-4 py-3">Business</th>
                                 <th class="px-4 py-3">ڕۆڵ</th>
                                 <th class="px-4 py-3">دروستکراو</th>
                                 <th class="px-4 py-3 text-center">کردارەکان</th>
@@ -215,6 +215,9 @@
                                     </td>
                                     <td class="px-4 py-3 text-secondary">
                                         {{ $managedUser->phone ?: '---' }}
+                                    </td>
+                                    <td class="px-4 py-3 text-secondary">
+                                        {{ $managedUser->business?->name ?: '---' }}
                                     </td>
                                     <td class="px-4 py-3">
                                         <span class="badge rounded-pill {{ $managedUser->role === 'manager' ? 'text-bg-primary' : 'text-bg-secondary' }}">
@@ -251,7 +254,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="px-4 py-5 text-center text-secondary">
+                                    <td colspan="8" class="px-4 py-5 text-center text-secondary">
                                         هیچ بەکارهێنەرێک نەدۆزرایەوە.
                                     </td>
                                 </tr>
@@ -262,6 +265,12 @@
             </div>
         </div>
     </div>
+
+    <datalist id="business-options">
+        @foreach ($businesses as $business)
+            <option value="{{ $business->name }}"></option>
+        @endforeach
+    </datalist>
 
     <div class="modal fade manager-modal" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -352,6 +361,23 @@
                                 @endif
                             </div>
 
+                            <div class="col-md-6">
+                                <label for="create-business-name" class="form-label">Business</label>
+                                <input
+                                    id="create-business-name"
+                                    name="business_name"
+                                    type="text"
+                                    list="business-options"
+                                    value="{{ $createBusinessName }}"
+                                    class="form-control form-control-lg @if ($createErrors->has('business_name')) is-invalid @endif"
+                                    placeholder="Business A"
+                                >
+                                <div class="form-text">هەمان ناو بنووسە بۆ business ـی هەبوو، یان ناوی نوێ بنووسە بۆ دروستکردنی business ـێکی نوێ.</div>
+                                @if ($createErrors->has('business_name'))
+                                    <div class="invalid-feedback">{{ $createErrors->first('business_name') }}</div>
+                                @endif
+                            </div>
+
                             <div class="col-12">
                                 <label for="create-password" class="form-label">وشەی نهێنی</label>
                                 <input
@@ -384,6 +410,7 @@
         @php($rowEmail = $isFailedRow ? old('email', $managedUser->email) : $managedUser->email)
         @php($rowPhone = $isFailedRow ? old('phone', $managedUser->phone) : $managedUser->phone)
         @php($rowRole = $isFailedRow ? old('role', $managedUser->role) : $managedUser->role)
+        @php($rowBusinessName = $isFailedRow ? old('business_name', $managedUser->business?->name) : $managedUser->business?->name)
 
         <div class="modal fade manager-modal" id="editUserModal-{{ $managedUser->id }}" tabindex="-1" aria-labelledby="editUserModalLabel-{{ $managedUser->id }}" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -475,6 +502,23 @@
                                     </select>
                                     @if ($isFailedRow && $updateErrors->has('role'))
                                         <div class="invalid-feedback">{{ $updateErrors->first('role') }}</div>
+                                    @endif
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label for="edit-business-name-{{ $managedUser->id }}" class="form-label">Business</label>
+                                    <input
+                                        id="edit-business-name-{{ $managedUser->id }}"
+                                        name="business_name"
+                                        type="text"
+                                        list="business-options"
+                                        value="{{ $rowBusinessName }}"
+                                        class="form-control form-control-lg @if ($isFailedRow && $updateErrors->has('business_name')) is-invalid @endif"
+                                        placeholder="Business A"
+                                    >
+                                    <div class="form-text">دەتوانیت business ـێکی هەبوو هەڵبژێریت یان ناوی نوێ بنووسیت.</div>
+                                    @if ($isFailedRow && $updateErrors->has('business_name'))
+                                        <div class="invalid-feedback">{{ $updateErrors->first('business_name') }}</div>
                                     @endif
                                 </div>
 

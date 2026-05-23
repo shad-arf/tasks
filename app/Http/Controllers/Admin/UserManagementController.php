@@ -5,21 +5,26 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
+use App\Models\Business;
 use App\Models\User;
+use App\Support\WhatsAppAccountSynchronizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Hash;
 
 class UserManagementController extends Controller
 {
-    public function store(StoreUserRequest $request): RedirectResponse
+    public function store(StoreUserRequest $request, WhatsAppAccountSynchronizer $whatsAppAccountSynchronizer): RedirectResponse
     {
         $data = $request->validated();
+        $business = $this->resolveBusiness($data['business_name']);
+        $whatsAppAccountSynchronizer->sync($business->name);
 
         User::create([
             'name' => $data['name'],
             'username' => $data['username'],
             'email' => $data['email'] ?: null,
             'phone' => $data['phone'] ?? null,
+            'business_id' => $business->id,
             'role' => $data['role'],
             'password' => Hash::make($data['password']),
         ]);
@@ -27,9 +32,15 @@ class UserManagementController extends Controller
         return to_route('admin.dashboard')->with('success', 'بەکارهێنەری نوێ زیادکرا.');
     }
 
-    public function update(UpdateUserRequest $request, User $user): RedirectResponse
+    public function update(
+        UpdateUserRequest $request,
+        User $user,
+        WhatsAppAccountSynchronizer $whatsAppAccountSynchronizer
+    ): RedirectResponse
     {
         $data = $request->validated();
+        $business = $this->resolveBusiness($data['business_name']);
+        $whatsAppAccountSynchronizer->sync($business->name);
 
         abort_if(
             auth()->id() === $user->id && $data['role'] !== 'manager',
@@ -42,6 +53,7 @@ class UserManagementController extends Controller
             'username' => $data['username'],
             'email' => $data['email'] ?: null,
             'phone' => $data['phone'] ?? null,
+            'business_id' => $business->id,
             'role' => $data['role'],
         ];
 
@@ -65,5 +77,12 @@ class UserManagementController extends Controller
         $user->delete();
 
         return to_route('admin.dashboard')->with('success', 'بەکارهێنەر سڕایەوە.');
+    }
+
+    private function resolveBusiness(string $name): Business
+    {
+        return Business::firstOrCreate([
+            'name' => trim($name),
+        ]);
     }
 }
