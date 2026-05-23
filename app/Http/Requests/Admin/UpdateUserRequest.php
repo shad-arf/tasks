@@ -13,6 +13,7 @@ class UpdateUserRequest extends FormRequest
     {
         $this->merge([
             'phone' => $this->normalizePhone($this->input('phone')),
+            'business_name' => $this->resolveBusinessName(),
         ]);
     }
 
@@ -48,5 +49,28 @@ class UpdateUserRequest extends FormRequest
         $normalized = preg_replace('/\D+/', '', $value) ?? '';
 
         return $normalized !== '' ? $normalized : null;
+    }
+
+    private function resolveBusinessName(): ?string
+    {
+        $businessName = $this->input('business_name');
+
+        if (is_string($businessName) && trim($businessName) !== '') {
+            return trim($businessName);
+        }
+
+        $selection = $this->input('business_selection');
+
+        if ($selection === '__new__') {
+            $newBusinessName = $this->input('new_business_name');
+
+            return is_string($newBusinessName) && trim($newBusinessName) !== ''
+                ? trim($newBusinessName)
+                : null;
+        }
+
+        return is_string($selection) && trim($selection) !== ''
+            ? trim($selection)
+            : null;
     }
 }

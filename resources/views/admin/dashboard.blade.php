@@ -84,6 +84,8 @@
     @php($updateErrors = $errors->updateUser)
     @php($failedUserId = (string) old('user_id'))
     @php($createBusinessName = old('business_name', $businesses->first()?->name))
+    @php($createBusinessSelection = old('business_selection', $businesses->contains('name', $createBusinessName) ? $createBusinessName : '__new__'))
+    @php($createNewBusinessName = old('new_business_name', $createBusinessSelection === '__new__' ? $createBusinessName : ''))
 
     <div class="manager-shell container-fluid px-3 px-lg-4">
         <div class="manager-hero rounded-5 p-4 p-lg-5 shadow-lg">
@@ -266,12 +268,6 @@
         </div>
     </div>
 
-    <datalist id="business-options">
-        @foreach ($businesses as $business)
-            <option value="{{ $business->name }}"></option>
-        @endforeach
-    </datalist>
-
     <div class="modal fade manager-modal" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
@@ -362,17 +358,38 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label for="create-business-name" class="form-label">Business</label>
+                                <label for="create-business-selection" class="form-label">Business</label>
+                                <select
+                                    id="create-business-selection"
+                                    name="business_selection"
+                                    class="form-select form-select-lg @if ($createErrors->has('business_name')) is-invalid @endif"
+                                    data-business-select
+                                    data-business-target="create-new-business-wrap"
+                                >
+                                    @foreach ($businesses as $business)
+                                        <option value="{{ $business->name }}" @selected($createBusinessSelection === $business->name)>{{ $business->name }}</option>
+                                    @endforeach
+                                    <option value="__new__" @selected($createBusinessSelection === '__new__')>New business...</option>
+                                </select>
+                                <div class="form-text">لە لیستەکە business هەڵبژێرە، یان `New business...` هەڵبژێرە بۆ زیادکردنی business ـێکی نوێ.</div>
+                                @if ($createErrors->has('business_name'))
+                                    <div class="invalid-feedback">{{ $createErrors->first('business_name') }}</div>
+                                @endif
+                            </div>
+
+                            <div
+                                class="col-md-6 @if ($createBusinessSelection !== '__new__') d-none @endif"
+                                id="create-new-business-wrap"
+                            >
+                                <label for="create-new-business-name" class="form-label">New Business Name</label>
                                 <input
-                                    id="create-business-name"
-                                    name="business_name"
+                                    id="create-new-business-name"
+                                    name="new_business_name"
                                     type="text"
-                                    list="business-options"
-                                    value="{{ $createBusinessName }}"
+                                    value="{{ $createNewBusinessName }}"
                                     class="form-control form-control-lg @if ($createErrors->has('business_name')) is-invalid @endif"
                                     placeholder="Business A"
                                 >
-                                <div class="form-text">هەمان ناو بنووسە بۆ business ـی هەبوو، یان ناوی نوێ بنووسە بۆ دروستکردنی business ـێکی نوێ.</div>
                                 @if ($createErrors->has('business_name'))
                                     <div class="invalid-feedback">{{ $createErrors->first('business_name') }}</div>
                                 @endif
@@ -411,6 +428,8 @@
         @php($rowPhone = $isFailedRow ? old('phone', $managedUser->phone) : $managedUser->phone)
         @php($rowRole = $isFailedRow ? old('role', $managedUser->role) : $managedUser->role)
         @php($rowBusinessName = $isFailedRow ? old('business_name', $managedUser->business?->name) : $managedUser->business?->name)
+        @php($rowBusinessSelection = $isFailedRow ? old('business_selection', $businesses->contains('name', $rowBusinessName) ? $rowBusinessName : '__new__') : ($businesses->contains('name', $rowBusinessName) ? $rowBusinessName : '__new__'))
+        @php($rowNewBusinessName = $isFailedRow ? old('new_business_name', $rowBusinessSelection === '__new__' ? $rowBusinessName : '') : ($rowBusinessSelection === '__new__' ? $rowBusinessName : ''))
 
         <div class="modal fade manager-modal" id="editUserModal-{{ $managedUser->id }}" tabindex="-1" aria-labelledby="editUserModalLabel-{{ $managedUser->id }}" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -506,17 +525,38 @@
                                 </div>
 
                                 <div class="col-md-6">
-                                    <label for="edit-business-name-{{ $managedUser->id }}" class="form-label">Business</label>
+                                    <label for="edit-business-selection-{{ $managedUser->id }}" class="form-label">Business</label>
+                                    <select
+                                        id="edit-business-selection-{{ $managedUser->id }}"
+                                        name="business_selection"
+                                        class="form-select form-select-lg @if ($isFailedRow && $updateErrors->has('business_name')) is-invalid @endif"
+                                        data-business-select
+                                        data-business-target="edit-new-business-wrap-{{ $managedUser->id }}"
+                                    >
+                                        @foreach ($businesses as $business)
+                                            <option value="{{ $business->name }}" @selected($rowBusinessSelection === $business->name)>{{ $business->name }}</option>
+                                        @endforeach
+                                        <option value="__new__" @selected($rowBusinessSelection === '__new__')>New business...</option>
+                                    </select>
+                                    <div class="form-text">لە dropdown ـەکە business هەڵبژێرە، یان `New business...` بۆ business ـێکی نوێ.</div>
+                                    @if ($isFailedRow && $updateErrors->has('business_name'))
+                                        <div class="invalid-feedback">{{ $updateErrors->first('business_name') }}</div>
+                                    @endif
+                                </div>
+
+                                <div
+                                    class="col-md-6 @if ($rowBusinessSelection !== '__new__') d-none @endif"
+                                    id="edit-new-business-wrap-{{ $managedUser->id }}"
+                                >
+                                    <label for="edit-new-business-name-{{ $managedUser->id }}" class="form-label">New Business Name</label>
                                     <input
-                                        id="edit-business-name-{{ $managedUser->id }}"
-                                        name="business_name"
+                                        id="edit-new-business-name-{{ $managedUser->id }}"
+                                        name="new_business_name"
                                         type="text"
-                                        list="business-options"
-                                        value="{{ $rowBusinessName }}"
+                                        value="{{ $rowNewBusinessName }}"
                                         class="form-control form-control-lg @if ($isFailedRow && $updateErrors->has('business_name')) is-invalid @endif"
                                         placeholder="Business A"
                                     >
-                                    <div class="form-text">دەتوانیت business ـێکی هەبوو هەڵبژێریت یان ناوی نوێ بنووسیت.</div>
                                     @if ($isFailedRow && $updateErrors->has('business_name'))
                                         <div class="invalid-feedback">{{ $updateErrors->first('business_name') }}</div>
                                     @endif
@@ -556,6 +596,22 @@
     ></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('[data-business-select]').forEach((selectElement) => {
+                const toggleBusinessField = () => {
+                    const targetId = selectElement.dataset.businessTarget;
+                    const target = targetId ? document.getElementById(targetId) : null;
+
+                    if (!target) {
+                        return;
+                    }
+
+                    target.classList.toggle('d-none', selectElement.value !== '__new__');
+                };
+
+                selectElement.addEventListener('change', toggleBusinessField);
+                toggleBusinessField();
+            });
+
             @if ($createErrors->any())
                 bootstrap.Modal.getOrCreateInstance(document.getElementById('createUserModal')).show();
             @endif
