@@ -12,6 +12,32 @@ use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
+function configureTaskWhatsAppFake(): void
+{
+    Cache::flush();
+
+    Http::fake([
+        'https://wa.bazrgan.com/api/auth/token' => Http::response([
+            'token' => 'fake-access-token',
+            'expires_in' => 86400,
+        ]),
+        'https://wa.bazrgan.com/api/send' => Http::response([
+            'success' => true,
+            'message' => 'sent',
+        ]),
+    ]);
+
+    config()->set('services.whatsapp', [
+        'base_url' => 'https://wa.bazrgan.com',
+        'send_endpoint' => '/api/send',
+        'token_url' => 'https://wa.bazrgan.com/api/auth/token',
+        'token' => null,
+        'client_id' => 'client-id',
+        'client_secret' => 'client-secret',
+        'account' => 'main',
+    ]);
+}
+
 it('redirects guests from the home route to the login page', function () {
     $this->get(route('home'))
         ->assertRedirect(route('login'));
@@ -419,6 +445,43 @@ it('allows the assignee to update a task status through the richer workflow', fu
     ]);
 });
 
+it('sends a whatsapp message to the assigner when the assignee completes a task', function () {
+    configureTaskWhatsAppFake();
+
+    $business = Business::create(['name' => 'Business A']);
+    $assigner = User::factory()->create([
+        'name' => 'Task Owner',
+        'phone' => '9647501112222',
+        'business_id' => $business->id,
+    ]);
+    $assignee = User::factory()->create([
+        'name' => 'Task Finisher',
+        'business_id' => $business->id,
+    ]);
+    $task = Task::create([
+        'title' => 'Review launch checklist',
+        'description' => 'Confirm blockers are cleared.',
+        'priority' => 'high',
+        'status' => 'pending_review',
+        'assigned_by' => $assigner->id,
+        'assigned_to' => $assignee->id,
+        'business_id' => $business->id,
+    ]);
+
+    $this->actingAs($assignee)
+        ->patch(route('tasks.status.update', $task), [
+            'status' => 'completed',
+        ])
+        ->assertRedirect(route('tasks.index'));
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://wa.bazrgan.com/api/send'
+        && $request['phone'] === '9647501112222'
+        && str_contains($request['message'], 'Task completed.')
+        && str_contains($request['message'], 'Title: Review launch checklist')
+        && str_contains($request['message'], 'Completed by: Task Finisher')
+        && $request['account'] === 'Business A');
+});
+
 it('hides completed tasks from the active dashboard unless requested', function () {
     $assigner = User::factory()->create();
     $assignee = User::factory()->create();
@@ -482,6 +545,44 @@ it('lets task participants add comments with attachments', function () {
         'comment' => 'Attached the supporting file.',
         'attachment_name' => 'notes.pdf',
     ]);
+});
+
+it('sends a whatsapp message to the other participant when a task comment is added', function () {
+    configureTaskWhatsAppFake();
+
+    $business = Business::create(['name' => 'Business A']);
+    $assigner = User::factory()->create([
+        'name' => 'Task Owner',
+        'business_id' => $business->id,
+    ]);
+    $assignee = User::factory()->create([
+        'name' => 'Task Assignee',
+        'phone' => '9647501234567',
+        'business_id' => $business->id,
+    ]);
+    $task = Task::create([
+        'title' => 'Send final assets',
+        'description' => null,
+        'priority' => 'low',
+        'status' => 'in_progress',
+        'assigned_by' => $assigner->id,
+        'assigned_to' => $assignee->id,
+        'business_id' => $business->id,
+    ]);
+
+    $this->actingAs($assigner)
+        ->post(route('tasks.comments.store', $task), [
+            'comment' => 'Attached the supporting file.',
+        ])
+        ->assertRedirect(route('tasks.index'));
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://wa.bazrgan.com/api/send'
+        && $request['phone'] === '9647501234567'
+        && str_contains($request['message'], 'New comment on a task.')
+        && str_contains($request['message'], 'Title: Send final assets')
+        && str_contains($request['message'], 'Commented by: Task Owner')
+        && str_contains($request['message'], 'Comment: Attached the supporting file.')
+        && $request['account'] === 'Business A');
 });
 
 it('allows the assignee to toggle a task status', function () {

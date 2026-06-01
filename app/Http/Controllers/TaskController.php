@@ -218,7 +218,7 @@ class TaskController extends Controller
         ]);
     }
 
-    public function updateStatus(Task $task, UpdateTaskStatusRequest $request): RedirectResponse
+    public function updateStatus(Task $task, UpdateTaskStatusRequest $request, WhatsAppService $whatsApp): RedirectResponse
     {
         $user = $request->user();
 
@@ -228,6 +228,7 @@ class TaskController extends Controller
         $this->ensureTaskBelongsToUserBusiness($task, $user);
         abort_if($user->id !== $task->assigned_to, 403, 'Only the assignee can change the task status.');
 
+        $wasCompleted = $task->is_completed;
         $status = $request->validated()['status'];
 
         $task->update([
@@ -236,10 +237,31 @@ class TaskController extends Controller
             'archived_at' => $status === Task::STATUS_COMPLETED ? $task->archived_at : null,
         ]);
 
-        return to_route('tasks.index', $this->taskIndexParameters($request))->with('success', 'دۆخی تاسک نوێکرایەوە.');
+        $warningMessage = null;
+
+        if (! $wasCompleted && $status === Task::STATUS_COMPLETED) {
+            $completedTask = $task->fresh();
+
+            $warningMessage = $this->sendTaskActivityWhatsAppMessage(
+                $whatsApp,
+                $completedTask,
+                $task->assigner()->select('id', 'name', 'phone')->first(),
+                $user,
+                $this->buildTaskCompletedWhatsAppMessage($completedTask, $user),
+                'completed'
+            );
+        }
+
+        $response = to_route('tasks.index', $this->taskIndexParameters($request))->with('success', 'دۆخی تاسک نوێکرایەوە.');
+
+        if ($warningMessage !== null) {
+            $response->with('warning', $warningMessage);
+        }
+
+        return $response;
     }
 
-    public function storeComment(Task $task, StoreTaskCommentRequest $request): RedirectResponse
+    public function storeComment(Task $task, StoreTaskCommentRequest $request, WhatsAppService $whatsApp): RedirectResponse
     {
         $user = $request->user();
 
@@ -270,10 +292,29 @@ class TaskController extends Controller
             'attachment_name' => $attachmentName,
         ]);
 
-        return to_route('tasks.index', $this->taskIndexParameters($request))->with('success', 'لەسەر تاسکەکە تێبینی زیادکرا.');
+        $recipient = $user->id === $task->assigned_to
+            ? $task->assigner()->select('id', 'name', 'phone')->first()
+            : $task->assignee()->select('id', 'name', 'phone')->first();
+
+        $warningMessage = $this->sendTaskActivityWhatsAppMessage(
+            $whatsApp,
+            $task,
+            $recipient,
+            $user,
+            $this->buildTaskCommentWhatsAppMessage($task, $user, $data['comment'] ?? null, $attachmentName),
+            'comment'
+        );
+
+        $response = to_route('tasks.index', $this->taskIndexParameters($request))->with('success', 'لەسەر تاسکەکە تێبینی زیادکرا.');
+
+        if ($warningMessage !== null) {
+            $response->with('warning', $warningMessage);
+        }
+
+        return $response;
     }
 
-    public function toggle(Task $task, Request $request): RedirectResponse
+    public function toggle(Task $task, Request $request, WhatsAppService $whatsApp): RedirectResponse
     {
         $user = $request->user();
 
@@ -284,6 +325,7 @@ class TaskController extends Controller
         abort_if($user->id !== $task->assigned_to, 403, 'Only the assignee can change the task status.');
 
         $nextStatus = $task->is_completed ? Task::STATUS_PENDING : Task::STATUS_COMPLETED;
+        $wasCompleted = $task->is_completed;
 
         $task->update([
             'status' => $nextStatus,
@@ -291,8 +333,29 @@ class TaskController extends Controller
             'archived_at' => $nextStatus === Task::STATUS_COMPLETED ? $task->archived_at : null,
         ]);
 
-        return to_route('tasks.index', $this->taskIndexParameters($request))
+        $warningMessage = null;
+
+        if (! $wasCompleted && $nextStatus === Task::STATUS_COMPLETED) {
+            $completedTask = $task->fresh();
+
+            $warningMessage = $this->sendTaskActivityWhatsAppMessage(
+                $whatsApp,
+                $completedTask,
+                $task->assigner()->select('id', 'name', 'phone')->first(),
+                $user,
+                $this->buildTaskCompletedWhatsAppMessage($completedTask, $user),
+                'completed'
+            );
+        }
+
+        $response = to_route('tasks.index', $this->taskIndexParameters($request))
             ->with('success', 'دۆخی تاسک نوێکرایەوە.');
+
+        if ($warningMessage !== null) {
+            $response->with('warning', $warningMessage);
+        }
+
+        return $response;
     }
 
     public function archive(Task $task, Request $request): RedirectResponse
@@ -432,13 +495,13 @@ class TaskController extends Controller
         } catch (Throwable $exception) {
             report($exception);
 
-            return $this->buildWhatsAppFailureMessage($exception);
+            return $this->buildWhatsAppFailureMessage($exception, 'تاسکەکە زیادکرا');
         }
 
         return null;
     }
 
-    private function buildWhatsAppFailureMessage(Throwable $exception): string
+    private function buildWhatsAppFailureMessage(Throwable $exception, string $successPrefix = 'کردارەکە جێبەجێ کرا'): string
     {
         $details = trim($exception->getMessage());
 
@@ -452,7 +515,7 @@ class TaskController extends Controller
             }
         }
 
-        $message = 'تاسکەکە زیادکرا، بەڵام ناردنی نامەی WhatsApp سەرکەوتوو نەبوو. تکایە دڵنیابە لەوەی WHATSAPP_ACCOUNT ڕاستە، ژمارەی وەرگر بە country code تۆمارکراوە، و CLIENT_ID / CLIENT_SECRET دروستن.';
+        $message = $successPrefix.'، بەڵام ناردنی نامەی WhatsApp سەرکەوتوو نەبوو. تکایە دڵنیابە لەوەی WHATSAPP_ACCOUNT ڕاستە، ژمارەی وەرگر بە country code تۆمارکراوە، و CLIENT_ID / CLIENT_SECRET دروستن.';
 
         if ($details === '') {
             return $message;
@@ -479,6 +542,68 @@ class TaskController extends Controller
         }
 
         return implode("\n", $lines);
+    }
+
+    private function sendTaskActivityWhatsAppMessage(
+        WhatsAppService $whatsApp,
+        ?Task $task,
+        ?User $recipient,
+        User $actor,
+        string $message,
+        string $activity
+    ): ?string {
+        if ($task === null || $recipient === null) {
+            return null;
+        }
+
+        if (blank($recipient->phone)) {
+            return 'کردارەکە جێبەجێ کرا، بەڵام WhatsApp نەنێردرا چونکە ژمارەی مۆبایلی وەرگر تۆمارنەکراوە. تکایە لە user profile ژمارەکە بە country code وەک 9647501234567 زیاد بکە، پاشان دووبارە هەوڵبدەرەوە.';
+        }
+
+        try {
+            $whatsApp->sendTextMessage(
+                $recipient->phone,
+                $message,
+                'task-'.$task->id.'-'.$activity.'-'.now()->timestamp,
+                $this->resolveWhatsAppAccountName($actor)
+            );
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return $this->buildWhatsAppFailureMessage($exception);
+        }
+
+        return null;
+    }
+
+    private function buildTaskCommentWhatsAppMessage(Task $task, User $commenter, ?string $comment, ?string $attachmentName): string
+    {
+        $lines = [
+            'New comment on a task.',
+            'Title: '.$task->title,
+            'Commented by: '.$commenter->name,
+        ];
+
+        $comment = trim((string) $comment);
+
+        if ($comment !== '') {
+            $lines[] = 'Comment: '.$comment;
+        }
+
+        if ($attachmentName !== null && trim($attachmentName) !== '') {
+            $lines[] = 'Attachment: '.$attachmentName;
+        }
+
+        return implode("\n", $lines);
+    }
+
+    private function buildTaskCompletedWhatsAppMessage(?Task $task, User $completedBy): string
+    {
+        return implode("\n", [
+            'Task completed.',
+            'Title: '.($task?->title ?? ''),
+            'Completed by: '.$completedBy->name,
+        ]);
     }
 
     private function ensureUserHasBusiness(User $user): void
