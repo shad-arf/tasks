@@ -154,6 +154,13 @@
                     <div class="display-6 fw-bold mt-2 mb-0 text-dark">{{ $stats['total_businesses'] }}</div>
                 </div>
             </div>
+
+            <div class="manager-stat-card card rounded-4 shadow-sm flex-shrink-0">
+                <div class="card-body">
+                    <div class="text-uppercase text-secondary fw-semibold small">Public Tasks</div>
+                    <div class="display-6 fw-bold mt-2 mb-0 text-dark">{{ $stats['public_tasks'] }}</div>
+                </div>
+            </div>
         </div>
 
         @if (session('success'))
@@ -167,6 +174,86 @@
                 {{ session('error') }}
             </div>
         @endif
+
+        <div class="card rounded-5 border-0 shadow-sm mb-4">
+            <div class="card-body p-0">
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 px-4 px-lg-5 py-4 border-bottom">
+                    <div>
+                        <h2 class="h4 mb-1 fw-bold text-dark">Public Tasks</h2>
+                        <p class="mb-0 text-secondary">
+                            ئەو داواکاریانەی لە public form ـەوە هاتوون، لێرە بۆ user ـی business ـەکە دیاری بکە.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="manager-table-wrap table-responsive rounded-bottom-5">
+                    <table class="manager-table table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="px-4 py-3">Task</th>
+                                <th class="px-4 py-3">Business</th>
+                                <th class="px-4 py-3">Assigned User</th>
+                                <th class="px-4 py-3">Created</th>
+                                <th class="px-4 py-3 text-center">Assign</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($publicTasks as $publicTask)
+                                @php($businessUsers = $taskAssignableUsers->get($publicTask->business_id, collect()))
+                                <tr>
+                                    <td class="px-4 py-3">
+                                        <div class="user-name">{{ $publicTask->title }}</div>
+                                        <div class="user-subline text-truncate" style="max-width: 420px;">{{ $publicTask->description }}</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-secondary">
+                                        {{ $publicTask->business?->name ?: '---' }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="fw-semibold text-dark">{{ $publicTask->assignee?->name ?? 'نادیار' }}</div>
+                                        <div class="small text-secondary">{{ $publicTask->assignee?->username ?? '---' }}</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-secondary">
+                                        {{ optional($publicTask->created_at)->format('Y-m-d H:i') }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        @if ($businessUsers->isNotEmpty())
+                                            <form
+                                                method="POST"
+                                                action="{{ route('admin.tasks.assignee.update', $publicTask) }}"
+                                                class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center justify-content-center gap-2"
+                                            >
+                                                @csrf
+                                                @method('PATCH')
+
+                                                <select name="assigned_to" class="form-select form-select-sm" aria-label="Assign public task">
+                                                    @foreach ($businessUsers as $businessUser)
+                                                        <option value="{{ $businessUser->id }}" @selected($publicTask->assigned_to === $businessUser->id)>
+                                                            {{ $businessUser->name }} ({{ $businessUser->username }})
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+
+                                                <button type="submit" class="btn btn-primary btn-sm px-3">
+                                                    Save
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="text-secondary small">No user in this business.</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="px-4 py-5 text-center text-secondary">
+                                        هیچ public task ـێک نەدۆزرایەوە.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
         <div class="card rounded-5 border-0 shadow-sm">
             <div class="card-body p-0">

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\PublicTaskAssignmentController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\PublicBusinessTaskController;
@@ -35,6 +36,7 @@ Route::middleware('auth')->group(function (): void {
 
     Route::middleware('manager')->group(function (): void {
         Route::get('/admin', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
+        Route::patch('/admin/tasks/{task}/assignee', [PublicTaskAssignmentController::class, 'update'])->name('admin.tasks.assignee.update');
         Route::post('/admin/users', [UserManagementController::class, 'store'])->name('admin.users.store');
         Route::patch('/admin/users/{user}', [UserManagementController::class, 'update'])->name('admin.users.update');
         Route::delete('/admin/users/{user}', [UserManagementController::class, 'destroy'])->name('admin.users.destroy');
