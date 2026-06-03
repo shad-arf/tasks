@@ -21,7 +21,8 @@ class AdminDashboardController extends Controller
             ->get();
 
         $businesses = Business::query()
-            ->select('id', 'name')
+            ->with('defaultPublicTaskAssignee:id,name,username,business_id')
+            ->select('id', 'name', 'default_public_task_assignee_id')
             ->orderBy('name')
             ->get();
 

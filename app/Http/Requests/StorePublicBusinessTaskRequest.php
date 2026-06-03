@@ -21,7 +21,7 @@ class StorePublicBusinessTaskRequest extends FormRequest
             'note' => ['nullable', 'string', 'max:5000'],
             'date' => ['required', 'date'],
             'time' => ['required', 'date_format:H:i'],
-            'image' => ['required', 'image', 'max:10240'],
+            'image' => ['nullable', 'image', 'max:10240'],
         ];
     }
 }

@@ -68,15 +68,17 @@ class PublicBusinessTaskController extends Controller
             'assigned_to' => $assignee->id,
         ]);
 
-        $imagePath = $request->file('image')->store('public-business-submissions', 'public');
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('public-business-submissions', 'public');
 
-        TaskComment::create([
-            'task_id' => $task->id,
-            'user_id' => $assigner->id,
-            'comment' => 'Image submitted through the public '.$business->name.' form.',
-            'attachment_path' => $imagePath,
-            'attachment_name' => $request->file('image')->getClientOriginalName(),
-        ]);
+            TaskComment::create([
+                'task_id' => $task->id,
+                'user_id' => $assigner->id,
+                'comment' => 'Image submitted through the public '.$business->name.' form.',
+                'attachment_path' => $imagePath,
+                'attachment_name' => $request->file('image')->getClientOriginalName(),
+            ]);
+        }
 
         return to_route('public.business.create', ['businessName' => Str::slug($business->name)])
             ->with('success', 'Your request was submitted successfully.');
@@ -103,6 +105,19 @@ class PublicBusinessTaskController extends Controller
 
     private function defaultAssignee(Business $business): User
     {
+        if ($business->default_public_task_assignee_id !== null) {
+            $configuredAssignee = User::query()
+                ->select('id', 'name', 'business_id')
+                ->where('role', 'user')
+                ->where('business_id', $business->id)
+                ->whereKey($business->default_public_task_assignee_id)
+                ->first();
+
+            if ($configuredAssignee !== null) {
+                return $configuredAssignee;
+            }
+        }
+
         $assignee = User::query()
             ->select('id', 'name', 'business_id')
             ->where('role', 'user')

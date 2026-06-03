@@ -179,6 +179,77 @@
             <div class="card-body p-0">
                 <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 px-4 px-lg-5 py-4 border-bottom">
                     <div>
+                        <h2 class="h4 mb-1 fw-bold text-dark">Public Default Assignee</h2>
+                        <p class="mb-0 text-secondary">
+                            ئەو user ـە دیاری بکە کە task ـەکانی public form بە default بۆی بچن.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="manager-table-wrap table-responsive rounded-bottom-5">
+                    <table class="manager-table table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="px-4 py-3">Business</th>
+                                <th class="px-4 py-3">Current Default</th>
+                                <th class="px-4 py-3 text-center">Set Default</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($businesses as $business)
+                                @php($businessUsers = $taskAssignableUsers->get($business->id, collect()))
+                                <tr>
+                                    <td class="px-4 py-3">
+                                        <div class="user-name">{{ $business->name }}</div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="fw-semibold text-dark">{{ $business->defaultPublicTaskAssignee?->name ?? 'نادیار' }}</div>
+                                        <div class="small text-secondary">{{ $business->defaultPublicTaskAssignee?->username ?? '---' }}</div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        @if ($businessUsers->isNotEmpty())
+                                            <form
+                                                method="POST"
+                                                action="{{ route('admin.businesses.public-task-default-assignee.update', $business) }}"
+                                                class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center justify-content-center gap-2"
+                                            >
+                                                @csrf
+                                                @method('PATCH')
+
+                                                <select name="default_public_task_assignee_id" class="form-select form-select-sm" aria-label="Set default public task assignee">
+                                                    @foreach ($businessUsers as $businessUser)
+                                                        <option value="{{ $businessUser->id }}" @selected($business->default_public_task_assignee_id === $businessUser->id)>
+                                                            {{ $businessUser->name }} ({{ $businessUser->username }})
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+
+                                                <button type="submit" class="btn btn-primary btn-sm px-3">
+                                                    Save
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="text-secondary small">No user in this business.</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="3" class="px-4 py-5 text-center text-secondary">
+                                        هیچ business ـێک نەدۆزرایەوە.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card rounded-5 border-0 shadow-sm mb-4">
+            <div class="card-body p-0">
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 px-4 px-lg-5 py-4 border-bottom">
+                    <div>
                         <h2 class="h4 mb-1 fw-bold text-dark">Public Tasks</h2>
                         <p class="mb-0 text-secondary">
                             ئەو داواکاریانەی لە public form ـەوە هاتوون، لێرە بۆ user ـی business ـەکە دیاری بکە.

@@ -151,7 +151,7 @@
         <div class="bazrgan-shell">
             <header class="bazrgan-header">
                 <h1 class="bazrgan-title">{{ $business->name }}</h1>
-                <p class="bazrgan-subtitle">Submit a public request with an image. The business team will review it as a task.</p>
+                <p class="bazrgan-subtitle">Submit a public request. The business team will review it as a task.</p>
             </header>
 
             @if (session('success'))
@@ -187,7 +187,7 @@
 
                 <div class="field field-full">
                     <label for="image">Image</label>
-                    <input id="image" type="file" name="image" accept="image/*" required>
+                    <input id="image" type="file" name="image" accept="image/*">
                     @error('image')
                         <div class="error">{{ $message }}</div>
                     @enderror

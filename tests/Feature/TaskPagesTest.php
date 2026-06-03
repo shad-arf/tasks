@@ -309,7 +309,6 @@ it('does not let public business visitors choose the task assignee', function ()
         'customer_name' => 'Public Customer',
         'date' => '2026-06-10',
         'time' => '09:30',
-        'image' => UploadedFile::fake()->image('request.jpg'),
     ])->assertRedirect(route('public.business.create', ['businessName' => 'business-public']));
 
     $this->assertDatabaseHas('tasks', [
@@ -321,6 +320,42 @@ it('does not let public business visitors choose the task assignee', function ()
     $this->assertDatabaseMissing('tasks', [
         'title' => 'Business Public request - Public Customer',
         'assigned_to' => $otherAssignee->id,
+    ]);
+});
+
+it('lets managers choose the default assignee for future public business tasks', function () {
+    $business = Business::create(['name' => 'Business Public']);
+    $manager = User::factory()->manager()->create([
+        'business_id' => $business->id,
+    ]);
+    $alphaAssignee = User::factory()->create([
+        'name' => 'Alpha Assignee',
+        'business_id' => $business->id,
+    ]);
+    $zedAssignee = User::factory()->create([
+        'name' => 'Zed Assignee',
+        'business_id' => $business->id,
+    ]);
+
+    $this->actingAs($manager)
+        ->patch(route('admin.businesses.public-task-default-assignee.update', $business), [
+            'default_public_task_assignee_id' => $zedAssignee->id,
+        ])
+        ->assertRedirect(route('admin.dashboard'));
+
+    expect($business->fresh()->default_public_task_assignee_id)->toBe($zedAssignee->id);
+
+    $this->post(route('public.business.store', ['businessName' => 'business-public']), [
+        'assigned_to' => $alphaAssignee->id,
+        'customer_name' => 'Public Customer',
+        'date' => '2026-06-10',
+        'time' => '09:30',
+    ])->assertRedirect(route('public.business.create', ['businessName' => 'business-public']));
+
+    $this->assertDatabaseHas('tasks', [
+        'title' => 'Business Public request - Public Customer',
+        'business_id' => $business->id,
+        'assigned_to' => $zedAssignee->id,
     ]);
 });
 
