@@ -17,7 +17,6 @@ class StorePublicBusinessTaskRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'assigned_to' => ['required', 'integer', 'exists:users,id'],
             'customer_name' => ['required', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:5000'],
             'date' => ['required', 'date'],

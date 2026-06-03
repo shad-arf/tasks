@@ -285,6 +285,45 @@ it('blocks assigning tasks to a user from another business', function () {
     ]);
 });
 
+it('does not let public business visitors choose the task assignee', function () {
+    $business = Business::create(['name' => 'Business Public']);
+    $defaultAssignee = User::factory()->create([
+        'name' => 'Alpha Assignee',
+        'business_id' => $business->id,
+    ]);
+    $otherAssignee = User::factory()->create([
+        'name' => 'Zed Assignee',
+        'business_id' => $business->id,
+    ]);
+
+    $this->get(route('public.business.create', ['businessName' => 'business-public']))
+        ->assertOk()
+        ->assertDontSee('Assign this task to')
+        ->assertDontSee('Alpha Assignee')
+        ->assertDontSee('Zed Assignee');
+
+    Storage::fake('public');
+
+    $this->post(route('public.business.store', ['businessName' => 'business-public']), [
+        'assigned_to' => $otherAssignee->id,
+        'customer_name' => 'Public Customer',
+        'date' => '2026-06-10',
+        'time' => '09:30',
+        'image' => UploadedFile::fake()->image('request.jpg'),
+    ])->assertRedirect(route('public.business.create', ['businessName' => 'business-public']));
+
+    $this->assertDatabaseHas('tasks', [
+        'title' => 'Business Public request - Public Customer',
+        'business_id' => $business->id,
+        'assigned_to' => $defaultAssignee->id,
+    ]);
+
+    $this->assertDatabaseMissing('tasks', [
+        'title' => 'Business Public request - Public Customer',
+        'assigned_to' => $otherAssignee->id,
+    ]);
+});
+
 it('sends a whatsapp message when requested during task creation', function () {
     Cache::flush();
 

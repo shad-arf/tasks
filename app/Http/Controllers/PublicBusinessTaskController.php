@@ -10,7 +10,6 @@ use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class PublicBusinessTaskController extends Controller
 {
@@ -21,7 +20,6 @@ class PublicBusinessTaskController extends Controller
         return view('public.bazrgan', [
             'business' => $business,
             'businessSlug' => Str::slug($business->name),
-            'users' => $this->assignableUsers($business),
         ]);
     }
 
@@ -30,21 +28,7 @@ class PublicBusinessTaskController extends Controller
         $business = $this->resolveBusiness($businessName);
         $data = $request->validated();
 
-        validator($data, [
-            'assigned_to' => [
-                'required',
-                'integer',
-                Rule::exists('users', 'id')->where(fn ($query) => $query
-                    ->where('role', 'user')
-                    ->where('business_id', $business->id)),
-            ],
-        ])->validate();
-
-        $assignee = User::query()
-            ->select('id', 'name', 'business_id')
-            ->where('role', 'user')
-            ->where('business_id', $business->id)
-            ->findOrFail((int) $data['assigned_to']);
+        $assignee = $this->defaultAssignee($business);
 
         $assigner = User::query()
             ->select('id', 'business_id')
@@ -117,13 +101,17 @@ class PublicBusinessTaskController extends Controller
         return $business;
     }
 
-    private function assignableUsers(Business $business)
+    private function defaultAssignee(Business $business): User
     {
-        return User::query()
-            ->select('id', 'name', 'username', 'business_id')
+        $assignee = User::query()
+            ->select('id', 'name', 'business_id')
             ->where('role', 'user')
             ->where('business_id', $business->id)
             ->orderBy('name')
-            ->get();
+            ->first();
+
+        abort_if($assignee === null, 422, 'This business does not have a task assignee yet.');
+
+        return $assignee;
     }
 }

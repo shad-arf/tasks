@@ -151,7 +151,7 @@
         <div class="bazrgan-shell">
             <header class="bazrgan-header">
                 <h1 class="bazrgan-title">{{ $business->name }}</h1>
-                <p class="bazrgan-subtitle">Submit a public request with an image. The selected team member will receive it as a task.</p>
+                <p class="bazrgan-subtitle">Submit a public request with an image. The business team will review it as a task.</p>
             </header>
 
             @if (session('success'))
@@ -160,21 +160,6 @@
 
             <form class="bazrgan-form" method="POST" action="{{ route('public.business.store', ['businessName' => $businessSlug]) }}" enctype="multipart/form-data">
                 @csrf
-
-                <div class="field field-full">
-                    <label for="assigned_to">Assign this task to</label>
-                    <select id="assigned_to" name="assigned_to" required>
-                        <option value="">Select a user</option>
-                        @foreach ($users as $user)
-                            <option value="{{ $user->id }}" @selected((string) old('assigned_to') === (string) $user->id)>
-                                {{ $user->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                    @error('assigned_to')
-                        <div class="error">{{ $message }}</div>
-                    @enderror
-                </div>
 
                 <div class="field">
                     <label for="customer_name">Your name</label>
