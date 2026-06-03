@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\PublicBusinessTaskController;
 use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 
@@ -39,3 +40,10 @@ Route::middleware('auth')->group(function (): void {
         Route::delete('/admin/users/{user}', [UserManagementController::class, 'destroy'])->name('admin.users.destroy');
     });
 });
+
+Route::get('/{businessName}', [PublicBusinessTaskController::class, 'create'])
+    ->where('businessName', '^(?!login$|logout$|tasks$|admin$).+')
+    ->name('public.business.create');
+Route::post('/{businessName}', [PublicBusinessTaskController::class, 'store'])
+    ->where('businessName', '^(?!login$|logout$|tasks$|admin$).+')
+    ->name('public.business.store');
