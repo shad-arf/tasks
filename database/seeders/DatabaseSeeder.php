@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Business;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -12,11 +13,16 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $defaultBusiness = Business::query()->firstOrCreate([
+            'name' => 'Default Business',
+        ]);
+
         User::query()->updateOrCreate([
             'email' => 'shad@example.com',
         ], [
             'name' => 'Shad',
             'username' => 'shad',
+            'business_id' => $defaultBusiness->id,
             'role' => 'user',
             'password' => bcrypt('password123'),
         ]);
@@ -26,6 +32,7 @@ class DatabaseSeeder extends Seeder
         ], [
             'name' => 'Manager',
             'username' => 'manager',
+            'business_id' => $defaultBusiness->id,
             'role' => 'manager',
             'password' => bcrypt('password123'),
         ]);
